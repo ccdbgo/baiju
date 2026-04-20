@@ -33,12 +33,15 @@ class UserAvatarButton extends ConsumerWidget {
     WidgetRef ref,
     String displayName,
   ) {
-    showModalBottomSheet<void>(
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (_) => ProviderScope(
-        parent: ProviderScope.containerOf(context),
-        child: _UserProfileSheet(displayName: displayName),
+      builder: (_) => Dialog(
+        alignment: Alignment.topRight,
+        insetPadding: const EdgeInsets.only(top: 56, right: 12),
+        child: SizedBox(
+          width: 480,
+          child: _UserProfileSheet(displayName: displayName),
+        ),
       ),
     );
   }
@@ -144,12 +147,7 @@ class _UserProfileSheetState extends ConsumerState<_UserProfileSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        24,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
