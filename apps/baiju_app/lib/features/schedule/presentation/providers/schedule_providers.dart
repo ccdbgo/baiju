@@ -164,6 +164,20 @@ class ScheduleActions {
     );
   }
 
+  Future<void> createScheduleAt({
+    required String title,
+    required DateTime startAt,
+    required DateTime endAt,
+    bool isAllDay = false,
+  }) {
+    return _repository.createScheduleAt(
+      title: title,
+      startAt: startAt,
+      endAt: endAt,
+      isAllDay: isAllDay,
+    );
+  }
+
   Future<void> toggleScheduleCompletion(
     SchedulesTableData schedule,
     bool completed,

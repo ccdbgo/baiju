@@ -162,6 +162,83 @@ class ScheduleRepository {
     return schedule;
   }
 
+  /// Create a schedule with explicit [startAt] and [endAt] (UTC).
+  /// Used by inline editors in calendar views.
+  Future<SchedulesTableData> createScheduleAt({
+    required String title,
+    required DateTime startAt,
+    required DateTime endAt,
+    bool isAllDay = false,
+  }) async {
+    final nowUtc = DateTime.now().toUtc();
+    final scheduleId = _uuid.v4();
+    final normalizedTitle = title.trim();
+    final timezone = DateTime.now().timeZoneName;
+
+    final companion = SchedulesTableCompanion.insert(
+      id: scheduleId,
+      userId: _workspace.userId,
+      title: normalizedTitle,
+      startAt: startAt,
+      endAt: endAt,
+      isAllDay: Value(isAllDay),
+      timezone: Value(timezone),
+      createdAt: Value(nowUtc),
+      updatedAt: Value(nowUtc),
+      syncStatus: const Value('pending_create'),
+      localVersion: const Value(1),
+      deviceId: Value(_workspace.deviceId),
+    );
+
+    final schedule = SchedulesTableData(
+      id: scheduleId,
+      userId: _workspace.userId,
+      title: normalizedTitle,
+      description: null,
+      startAt: startAt,
+      endAt: endAt,
+      isAllDay: isAllDay,
+      timezone: timezone,
+      location: null,
+      category: null,
+      color: null,
+      status: 'planned',
+      recurrenceRule: null,
+      reminderMinutesBefore: null,
+      sourceTodoId: null,
+      linkedNoteId: null,
+      completedAt: null,
+      createdAt: nowUtc,
+      updatedAt: nowUtc,
+      deletedAt: null,
+      syncStatus: 'pending_create',
+      localVersion: 1,
+      remoteVersion: null,
+      lastSyncedAt: null,
+      deviceId: _workspace.deviceId,
+    );
+
+    await _database.transaction(() async {
+      await _dao.insertSchedule(companion);
+      await _enqueueSync(
+        entityId: scheduleId,
+        operation: 'create',
+        payload: <String, Object?>{
+          'id': scheduleId,
+          'title': normalizedTitle,
+          'is_all_day': isAllDay,
+          'start_at': startAt.toIso8601String(),
+          'end_at': endAt.toIso8601String(),
+          'status': 'planned',
+          'updated_at': nowUtc.toIso8601String(),
+        },
+      );
+    });
+
+    await _reminderScheduler.syncScheduleReminder(schedule);
+    return schedule;
+  }
+
   Future<void> toggleScheduleCompletion(
     SchedulesTableData schedule,
     bool completed,

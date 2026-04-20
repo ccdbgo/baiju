@@ -119,12 +119,14 @@ class TodoActions {
     required TodoPriority priority,
     required bool dueToday,
     String? goalId,
+    DateTime? dueAt,
   }) {
     return _repository.createTodo(
       title: title,
       priority: priority,
       dueToday: dueToday,
       goalId: goalId,
+      dueAt: dueAt,
     );
   }
 

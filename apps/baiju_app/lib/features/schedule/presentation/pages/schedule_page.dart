@@ -46,9 +46,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   final TextEditingController _descriptionController = TextEditingController();
   final Set<String> _pendingScheduleIds = <String>{};
 
-  QuickScheduleDay _selectedDay = QuickScheduleDay.today;
-  QuickScheduleSlot _selectedSlot = QuickScheduleSlot.morning;
-  ScheduleDurationOption _selectedDuration = ScheduleDurationOption.oneHour;
   ScheduleReminderOption _selectedReminder = ScheduleReminderOption.fifteen;
   ScheduleRecurrenceRule _selectedRecurrence = ScheduleRecurrenceRule.none;
   ScheduleViewMode _selectedView = ScheduleViewMode.day;
@@ -61,6 +58,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   bool _isCreating = false;
   bool _defaultReminderHydrated = false;
   String? _defaultReminderWorkspaceId;
+  // 快速创建：直接用 DateTime 而非枚举
+  DateTime _quickStartAt = DateTime.now().copyWith(
+    hour: 9, minute: 0, second: 0, millisecond: 0, microsecond: 0,
+  );
+  DateTime _quickEndAt = DateTime.now().copyWith(
+    hour: 10, minute: 0, second: 0, millisecond: 0, microsecond: 0,
+  );
 
   @override
   void dispose() {
@@ -131,16 +135,18 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             descriptionController: _descriptionController,
             isCreating: _isCreating,
             isAllDay: _isAllDay,
-            selectedDay: _selectedDay,
-            selectedSlot: _selectedSlot,
-            selectedDuration: _selectedDuration,
+            startAt: _quickStartAt,
+            endAt: _quickEndAt,
             selectedReminder: _selectedReminder,
             selectedRecurrence: _selectedRecurrence,
             onAllDayChanged: (value) => setState(() => _isAllDay = value),
-            onDayChanged: (value) => setState(() => _selectedDay = value),
-            onSlotChanged: (value) => setState(() => _selectedSlot = value),
-            onDurationChanged: (value) =>
-                setState(() => _selectedDuration = value),
+            onStartAtChanged: (value) => setState(() {
+              _quickStartAt = value;
+              if (!_quickEndAt.isAfter(_quickStartAt)) {
+                _quickEndAt = _quickStartAt.add(const Duration(hours: 1));
+              }
+            }),
+            onEndAtChanged: (value) => setState(() => _quickEndAt = value),
             onReminderChanged: (value) =>
                 setState(() => _selectedReminder = value),
             onRecurrenceChanged: (value) =>
@@ -192,6 +198,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                   _focusDate = monthDate;
                   _selectedView = ScheduleViewMode.month;
                 });
+              },
+              onInlineCreate: (title, startAt, endAt, isAllDay) async {
+                await ref.read(scheduleActionsProvider).createScheduleAt(
+                  title: title,
+                  startAt: startAt,
+                  endAt: endAt,
+                  isAllDay: isAllDay,
+                );
               },
             ),
             loading: () => const Padding(
@@ -382,16 +396,17 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     setState(() => _isCreating = true);
 
     try {
-      await ref.read(scheduleActionsProvider).createSchedule(
+      final startAt = _isAllDay
+          ? DateTime(_quickStartAt.year, _quickStartAt.month, _quickStartAt.day).toUtc()
+          : _quickStartAt.toUtc();
+      final endAt = _isAllDay
+          ? DateTime(_quickStartAt.year, _quickStartAt.month, _quickStartAt.day + 1).toUtc()
+          : (_quickEndAt.isAfter(_quickStartAt) ? _quickEndAt.toUtc() : _quickStartAt.add(const Duration(hours: 1)).toUtc());
+
+      await ref.read(scheduleActionsProvider).createScheduleAt(
         title: title,
-        day: _selectedDay,
-        slot: _selectedSlot,
-        duration: _selectedDuration,
-        reminder: _selectedReminder,
-        recurrence: _selectedRecurrence,
-        description: _descriptionController.text,
-        location: _locationController.text,
-        category: _categoryController.text,
+        startAt: startAt,
+        endAt: endAt,
         isAllDay: _isAllDay,
       );
 
@@ -399,6 +414,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       _locationController.clear();
       _categoryController.clear();
       _descriptionController.clear();
+      final now = DateTime.now();
       final defaultPreferences = ref
           .read(userPreferencesProvider)
           .maybeWhen(
@@ -407,9 +423,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           );
       if (mounted) {
         setState(() {
-          _selectedDay = QuickScheduleDay.today;
-          _selectedSlot = QuickScheduleSlot.morning;
-          _selectedDuration = ScheduleDurationOption.oneHour;
+          _quickStartAt = now.copyWith(hour: 9, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+          _quickEndAt = now.copyWith(hour: 10, minute: 0, second: 0, millisecond: 0, microsecond: 0);
           _selectedReminder = defaultPreferences.defaultScheduleReminderOption;
           _selectedRecurrence = ScheduleRecurrenceRule.none;
           _isAllDay = false;
@@ -463,9 +478,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final descriptionController = TextEditingController(
       text: schedule.description,
     );
-    var selectedDate = schedule.startAt.toLocal();
-    var selectedTime = TimeOfDay.fromDateTime(schedule.startAt.toLocal());
-    var selectedDuration = _durationFromSchedule(schedule);
+    var selectedStartAt = schedule.startAt.toLocal();
+    var selectedEndAt = schedule.endAt.toLocal();
     var isAllDay = schedule.isAllDay;
     var selectedReminder = ScheduleReminderOption.fromMinutes(
       schedule.reminderMinutesBefore,
@@ -482,6 +496,33 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         builder: (context) {
           return StatefulBuilder(
             builder: (context, setModalState) {
+              Future<void> pickDateTime({required bool isStart}) async {
+                final current = isStart ? selectedStartAt : selectedEndAt;
+                final date = await showDatePicker(
+                  context: context,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2035),
+                  initialDate: current,
+                );
+                if (date == null || !context.mounted) return;
+                final time = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(current),
+                );
+                if (time == null) return;
+                final picked = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                setModalState(() {
+                  if (isStart) {
+                    selectedStartAt = picked;
+                    if (!selectedEndAt.isAfter(selectedStartAt)) {
+                      selectedEndAt = selectedStartAt.add(const Duration(hours: 1));
+                    }
+                  } else {
+                    selectedEndAt = picked;
+                  }
+                });
+              }
+
               return SafeArea(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
@@ -517,69 +558,41 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                             setModalState(() => isAllDay = value),
                       ),
                       const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: <Widget>[
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2035),
-                                initialDate: selectedDate,
-                              );
-                              if (picked != null) {
-                                setModalState(() => selectedDate = picked);
-                              }
-                            },
-                            icon: const Icon(Icons.calendar_month_outlined),
-                            label: Text(
-                              DateFormat('M月d日').format(selectedDate),
-                            ),
-                          ),
-                          if (!isAllDay)
-                            OutlinedButton.icon(
-                              onPressed: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: selectedTime,
-                                );
-                                if (picked != null) {
-                                  setModalState(() => selectedTime = picked);
-                                }
-                              },
-                              icon: const Icon(Icons.schedule),
-                              label: Text(selectedTime.format(context)),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
                       if (!isAllDay) ...<Widget>[
-                        Text(
-                          '时长',
-                          style: Theme.of(context).textTheme.titleMedium,
+                        OutlinedButton.icon(
+                          onPressed: () => pickDateTime(isStart: true),
+                          icon: const Icon(Icons.schedule, size: 16),
+                          label: Text(
+                            '开始：${DateFormat('M月d日 HH:mm').format(selectedStartAt)}',
+                          ),
                         ),
                         const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children:
-                              ScheduleDurationOption.values.map((option) {
-                            return ChoiceChip(
-                              label: Text(option.label),
-                              selected: option == selectedDuration,
-                              onSelected: (_) => setModalState(
-                                () => selectedDuration = option,
-                              ),
-                            );
-                          }).toList(),
+                        OutlinedButton.icon(
+                          onPressed: () => pickDateTime(isStart: false),
+                          icon: const Icon(Icons.schedule_outlined, size: 16),
+                          label: Text(
+                            '结束：${DateFormat('M月d日 HH:mm').format(selectedEndAt)}',
+                          ),
                         ),
-                        const SizedBox(height: 12),
                       ] else
-                        Text(
-                          '全天默认占用所选日期 00:00 - 次日 00:00。',
-                          style: Theme.of(context).textTheme.bodyMedium,
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2035),
+                              initialDate: selectedStartAt,
+                            );
+                            if (picked != null) {
+                              setModalState(() => selectedStartAt = DateTime(
+                                picked.year, picked.month, picked.day,
+                              ));
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_month_outlined),
+                          label: Text(
+                            DateFormat('M月d日').format(selectedStartAt),
+                          ),
                         ),
                       const SizedBox(height: 12),
                       TextField(
@@ -670,17 +683,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       }
 
       final localStart = isAllDay
-          ? DateTime(selectedDate.year, selectedDate.month, selectedDate.day)
-          : DateTime(
-              selectedDate.year,
-              selectedDate.month,
-              selectedDate.day,
-              selectedTime.hour,
-              selectedTime.minute,
-            );
+          ? DateTime(selectedStartAt.year, selectedStartAt.month, selectedStartAt.day)
+          : selectedStartAt;
       final localEnd = isAllDay
           ? localStart.add(const Duration(days: 1))
-          : localStart.add(Duration(minutes: selectedDuration.minutes));
+          : (selectedEndAt.isAfter(selectedStartAt)
+              ? selectedEndAt
+              : selectedStartAt.add(const Duration(hours: 1)));
 
       await ref.read(scheduleActionsProvider).updateSchedule(
         schedule: schedule,
@@ -712,14 +721,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       categoryController.dispose();
       descriptionController.dispose();
     }
-  }
-
-  ScheduleDurationOption _durationFromSchedule(SchedulesTableData schedule) {
-    final minutes = schedule.endAt.difference(schedule.startAt).inMinutes;
-    return ScheduleDurationOption.values.firstWhere(
-      (option) => option.minutes == minutes,
-      orElse: () => ScheduleDurationOption.oneHour,
-    );
   }
 
   void _moveFocusBackward() {
@@ -944,15 +945,13 @@ class _QuickCreateScheduleCard extends StatelessWidget {
     required this.descriptionController,
     required this.isCreating,
     required this.isAllDay,
-    required this.selectedDay,
-    required this.selectedSlot,
-    required this.selectedDuration,
+    required this.startAt,
+    required this.endAt,
     required this.selectedReminder,
     required this.selectedRecurrence,
     required this.onAllDayChanged,
-    required this.onDayChanged,
-    required this.onSlotChanged,
-    required this.onDurationChanged,
+    required this.onStartAtChanged,
+    required this.onEndAtChanged,
     required this.onReminderChanged,
     required this.onRecurrenceChanged,
     required this.onSubmit,
@@ -964,15 +963,13 @@ class _QuickCreateScheduleCard extends StatelessWidget {
   final TextEditingController descriptionController;
   final bool isCreating;
   final bool isAllDay;
-  final QuickScheduleDay selectedDay;
-  final QuickScheduleSlot selectedSlot;
-  final ScheduleDurationOption selectedDuration;
+  final DateTime startAt;
+  final DateTime endAt;
   final ScheduleReminderOption selectedReminder;
   final ScheduleRecurrenceRule selectedRecurrence;
   final ValueChanged<bool> onAllDayChanged;
-  final ValueChanged<QuickScheduleDay> onDayChanged;
-  final ValueChanged<QuickScheduleSlot> onSlotChanged;
-  final ValueChanged<ScheduleDurationOption> onDurationChanged;
+  final ValueChanged<DateTime> onStartAtChanged;
+  final ValueChanged<DateTime> onEndAtChanged;
   final ValueChanged<ScheduleReminderOption> onReminderChanged;
   final ValueChanged<ScheduleRecurrenceRule> onRecurrenceChanged;
   final Future<void> Function() onSubmit;
@@ -1007,6 +1004,32 @@ class _QuickCreateScheduleCard extends StatelessWidget {
               onChanged: isCreating ? null : onAllDayChanged,
             ),
             const SizedBox(height: 8),
+            // 起止时间选择
+            if (!isAllDay) ...<Widget>[
+              _ScheduleDateTimePicker(
+                label: '开始时间',
+                value: startAt,
+                enabled: !isCreating,
+                onChanged: onStartAtChanged,
+              ),
+              const SizedBox(height: 8),
+              _ScheduleDateTimePicker(
+                label: '结束时间',
+                value: endAt,
+                enabled: !isCreating,
+                onChanged: onEndAtChanged,
+              ),
+              const SizedBox(height: 12),
+            ] else ...<Widget>[
+              _ScheduleDateTimePicker(
+                label: '日期',
+                value: startAt,
+                enabled: !isCreating,
+                dateOnly: true,
+                onChanged: onStartAtChanged,
+              ),
+              const SizedBox(height: 12),
+            ],
             TextField(
               key: const ValueKey('schedule-quick-location-field'),
               controller: locationController,
@@ -1041,51 +1064,6 @@ class _QuickCreateScheduleCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: QuickScheduleDay.values.map((day) {
-                return ChoiceChip(
-                  label: Text(day.label),
-                  selected: day == selectedDay,
-                  onSelected: isCreating ? null : (_) => onDayChanged(day),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-            if (!isAllDay) ...<Widget>[
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: QuickScheduleSlot.values.map((slot) {
-                  return ChoiceChip(
-                    label: Text(slot.label),
-                    selected: slot == selectedSlot,
-                    onSelected: isCreating ? null : (_) => onSlotChanged(slot),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: ScheduleDurationOption.values.map((option) {
-                  return ChoiceChip(
-                    label: Text(option.label),
-                    selected: option == selectedDuration,
-                    onSelected: isCreating
-                        ? null
-                        : (_) => onDurationChanged(option),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-            ] else
-              Text(
-                '全天将默认覆盖所选日期 00:00 - 次日 00:00。',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            const SizedBox(height: 12),
             Text('重复规则', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Wrap(
@@ -1136,6 +1114,55 @@ class _QuickCreateScheduleCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ScheduleDateTimePicker extends StatelessWidget {
+  const _ScheduleDateTimePicker({
+    required this.label,
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+    this.dateOnly = false,
+  });
+
+  final String label;
+  final DateTime value;
+  final bool enabled;
+  final ValueChanged<DateTime> onChanged;
+  final bool dateOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = dateOnly
+        ? DateFormat('yyyy年M月d日').format(value)
+        : DateFormat('M月d日 HH:mm').format(value);
+
+    return OutlinedButton.icon(
+      onPressed: enabled ? () => _pick(context) : null,
+      icon: Icon(dateOnly ? Icons.calendar_month_outlined : Icons.schedule, size: 16),
+      label: Text('$label：$displayText'),
+    );
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: value,
+      firstDate: DateTime(DateTime.now().year - 1),
+      lastDate: DateTime(DateTime.now().year + 5),
+    );
+    if (date == null || !context.mounted) return;
+    if (dateOnly) {
+      onChanged(DateTime(date.year, date.month, date.day, value.hour, value.minute));
+      return;
+    }
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(value),
+    );
+    if (time == null) return;
+    onChanged(DateTime(date.year, date.month, date.day, time.hour, time.minute));
   }
 }
 

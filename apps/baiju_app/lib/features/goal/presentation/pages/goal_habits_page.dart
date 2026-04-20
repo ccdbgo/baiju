@@ -140,7 +140,7 @@ class _GoalHabitsPageState extends ConsumerState<GoalHabitsPage> {
 
               return SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,

@@ -77,19 +77,20 @@ class TodoRepository {
     required TodoPriority priority,
     required bool dueToday,
     String? goalId,
+    DateTime? dueAt,
   }) async {
     final now = DateTime.now().toUtc();
     final todoId = _uuid.v4();
-    final dueAt =
-        dueToday ? _todayRangeUtc().end.subtract(const Duration(minutes: 1)) : null;
+    final resolvedDueAt = dueAt ??
+        (dueToday ? _todayRangeUtc().end.subtract(const Duration(minutes: 1)) : null);
 
     final companion = TodosTableCompanion.insert(
       id: todoId,
       userId: _workspace.userId,
       title: title.trim(),
       priority: Value(priority.value),
-      dueAt: Value(dueAt),
-      plannedAt: Value(dueAt),
+      dueAt: Value(resolvedDueAt),
+      plannedAt: Value(resolvedDueAt),
       goalId: Value(goalId),
       createdAt: Value(now),
       updatedAt: Value(now),
@@ -108,7 +109,7 @@ class TodoRepository {
           'title': title.trim(),
           'priority': priority.value,
           'goal_id': goalId,
-          'due_at': dueAt?.toIso8601String(),
+          'due_at': resolvedDueAt?.toIso8601String(),
           'status': 'open',
           'updated_at': now.toIso8601String(),
         },

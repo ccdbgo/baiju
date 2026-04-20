@@ -37,7 +37,7 @@ class _TodoPageState extends ConsumerState<TodoPage> {
   TodoPriority _selectedPriority = TodoPriority.medium;
   String? _selectedGoalId;
   TodoSortOption _sortOption = TodoSortOption.updatedDesc;
-  bool _dueToday = false;
+  DateTime? _dueAt;
   bool _isCreating = false;
 
   @override
@@ -77,11 +77,11 @@ class _TodoPageState extends ConsumerState<TodoPage> {
           _QuickCreateCard(
             controller: _titleController,
             isCreating: _isCreating,
-            dueToday: _dueToday,
+            dueAt: _dueAt,
             selectedPriority: _selectedPriority,
             goalOptions: goalOptions,
             selectedGoalId: _selectedGoalId,
-            onDueTodayChanged: (value) => setState(() => _dueToday = value),
+            onDueAtChanged: (value) => setState(() => _dueAt = value),
             onPriorityChanged: (priority) =>
                 setState(() => _selectedPriority = priority),
             onGoalChanged: (goalId) => setState(() => _selectedGoalId = goalId),
@@ -207,8 +207,9 @@ class _TodoPageState extends ConsumerState<TodoPage> {
           .createTodo(
             title: title,
             priority: _selectedPriority,
-            dueToday: _dueToday,
+            dueToday: _dueAt != null,
             goalId: _selectedGoalId,
+            dueAt: _dueAt?.toUtc(),
           );
 
       _titleController.clear();
@@ -216,7 +217,7 @@ class _TodoPageState extends ConsumerState<TodoPage> {
         setState(() {
           _selectedPriority = TodoPriority.medium;
           _selectedGoalId = null;
-          _dueToday = false;
+          _dueAt = null;
         });
       }
     } catch (error) {
@@ -273,7 +274,7 @@ class _TodoPageState extends ConsumerState<TodoPage> {
           builder: (context, setModalState) {
             return SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,11 +562,11 @@ class _QuickCreateCard extends StatelessWidget {
   const _QuickCreateCard({
     required this.controller,
     required this.isCreating,
-    required this.dueToday,
+    required this.dueAt,
     required this.selectedPriority,
     required this.goalOptions,
     required this.selectedGoalId,
-    required this.onDueTodayChanged,
+    required this.onDueAtChanged,
     required this.onPriorityChanged,
     required this.onGoalChanged,
     required this.onSubmit,
@@ -573,11 +574,11 @@ class _QuickCreateCard extends StatelessWidget {
 
   final TextEditingController controller;
   final bool isCreating;
-  final bool dueToday;
+  final DateTime? dueAt;
   final TodoPriority selectedPriority;
   final AsyncValue<List<GoalsTableData>> goalOptions;
   final String? selectedGoalId;
-  final ValueChanged<bool> onDueTodayChanged;
+  final ValueChanged<DateTime?> onDueAtChanged;
   final ValueChanged<TodoPriority> onPriorityChanged;
   final ValueChanged<String?> onGoalChanged;
   final Future<void> Function() onSubmit;
@@ -641,13 +642,11 @@ class _QuickCreateCard extends StatelessWidget {
               loading: () => const LinearProgressIndicator(),
               error: (error, stackTrace) => Text('目标加载失败：$error'),
             ),
-            const SizedBox(height: 10),
-            SwitchListTile(
-              value: dueToday,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('今天处理'),
-              subtitle: const Text('会为这条待办写入今天的截止时间'),
-              onChanged: isCreating ? null : onDueTodayChanged,
+            const SizedBox(height: 12),
+            _DueAtPicker(
+              dueAt: dueAt,
+              enabled: !isCreating,
+              onChanged: onDueAtChanged,
             ),
             const SizedBox(height: 6),
             Align(
@@ -955,5 +954,61 @@ class _ErrorCard extends StatelessWidget {
     return Card(
       child: Padding(padding: const EdgeInsets.all(18), child: Text(message)),
     );
+  }
+}
+
+class _DueAtPicker extends StatelessWidget {
+  const _DueAtPicker({
+    required this.dueAt,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final DateTime? dueAt;
+  final bool enabled;
+  final ValueChanged<DateTime?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        OutlinedButton.icon(
+          onPressed: enabled ? () => _pickDateTime(context) : null,
+          icon: const Icon(Icons.event_outlined, size: 16),
+          label: Text(
+            dueAt == null
+                ? '设置截止时间'
+                : DateFormat('M月d日 HH:mm').format(dueAt!),
+          ),
+        ),
+        if (dueAt != null) ...<Widget>[
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.close, size: 16),
+            tooltip: '清除截止时间',
+            onPressed: enabled ? () => onChanged(null) : null,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _pickDateTime(BuildContext context) async {
+    final now = DateTime.now();
+    final initial = dueAt ?? now;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (date == null || !context.mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null) return;
+    onChanged(DateTime(date.year, date.month, date.day, time.hour, time.minute));
   }
 }

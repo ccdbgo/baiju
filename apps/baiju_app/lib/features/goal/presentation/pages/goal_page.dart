@@ -293,7 +293,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             builder: (context, setModalState) {
               return SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
                   child: ListView(
                     shrinkWrap: true,
                     children: <Widget>[
@@ -464,7 +464,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             builder: (context, setModalState) {
               return SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,7 +543,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             builder: (context, setModalState) {
               return SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,

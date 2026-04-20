@@ -1,6 +1,7 @@
 import 'package:baiju_app/app/config/app_env.dart';
 import 'package:baiju_app/app/config/app_environment.dart';
 import 'package:baiju_app/core/notifications/app_notification_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,7 +12,9 @@ class AppBootstrap {
     WidgetsFlutterBinding.ensureInitialized();
 
     final environment = resolveAppEnvironment();
-    await AppNotificationService.instance.initialize();
+    if (!kIsWeb) {
+      await AppNotificationService.instance.initialize();
+    }
     await _initializeSupabase(environment);
 
     return environment;

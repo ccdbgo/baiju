@@ -240,18 +240,22 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage> {
   Future<void> _openEditTodoSheet(TodosTableData todo) async {
     final titleController = TextEditingController(text: todo.title);
     var priority = TodoPriority.fromValue(todo.priority);
-    var dueToday = todo.dueAt != null;
+    var dueAt = todo.dueAt?.toLocal();
 
     try {
       final confirmed = await showModalBottomSheet<bool>(
         context: context,
         showDragHandle: true,
+        isScrollControlled: true,
         builder: (context) {
           return StatefulBuilder(
             builder: (context, setModalState) {
               return SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    20, 8, 20,
+                    20 + MediaQuery.of(context).viewInsets.bottom,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,12 +286,46 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage> {
                         }).toList(),
                       ),
                       const SizedBox(height: 12),
-                      SwitchListTile(
-                        value: dueToday,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('今天处理'),
-                        onChanged: (value) =>
-                            setModalState(() => dueToday = value),
+                      Row(
+                        children: <Widget>[
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final now = DateTime.now();
+                              final initial = dueAt ?? now;
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: initial,
+                                firstDate: DateTime(now.year - 1),
+                                lastDate: DateTime(now.year + 5),
+                              );
+                              if (date == null || !context.mounted) return;
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay.fromDateTime(initial),
+                              );
+                              if (time == null) return;
+                              setModalState(() => dueAt = DateTime(
+                                date.year, date.month, date.day,
+                                time.hour, time.minute,
+                              ));
+                            },
+                            icon: const Icon(Icons.event_outlined, size: 16),
+                            label: Text(
+                              dueAt == null
+                                  ? '设置截止时间'
+                                  : DateFormat('M月d日 HH:mm').format(dueAt!),
+                            ),
+                          ),
+                          if (dueAt != null) ...<Widget>[
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 16),
+                              tooltip: '清除截止时间',
+                              onPressed: () => setModalState(() => dueAt = null),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 12),
                       SizedBox(
@@ -310,14 +348,13 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage> {
         return;
       }
 
-      final dueAt = dueToday ? DateTime.now().toUtc() : null;
       await ref
           .read(todoActionsProvider)
           .updateTodo(
             todo: todo,
             title: titleController.text.trim(),
             priority: priority,
-            dueAt: dueAt,
+            dueAt: dueAt?.toUtc(),
           );
     } finally {
       titleController.dispose();

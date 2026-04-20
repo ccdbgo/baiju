@@ -220,9 +220,8 @@ class ScheduleDetailPage extends ConsumerWidget {
     final descriptionController = TextEditingController(
       text: schedule.description,
     );
-    var selectedDate = schedule.startAt.toLocal();
-    var selectedTime = TimeOfDay.fromDateTime(schedule.startAt.toLocal());
-    var selectedDuration = _durationFromSchedule(schedule);
+    var selectedStartAt = schedule.startAt.toLocal();
+    var selectedEndAt = schedule.endAt.toLocal();
     var isAllDay = schedule.isAllDay;
     var selectedReminder = ScheduleReminderOption.fromMinutes(
       schedule.reminderMinutesBefore,
@@ -239,6 +238,33 @@ class ScheduleDetailPage extends ConsumerWidget {
         builder: (context) {
           return StatefulBuilder(
             builder: (context, setModalState) {
+              Future<void> pickDateTime({required bool isStart}) async {
+                final current = isStart ? selectedStartAt : selectedEndAt;
+                final date = await showDatePicker(
+                  context: context,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2035),
+                  initialDate: current,
+                );
+                if (date == null || !context.mounted) return;
+                final time = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(current),
+                );
+                if (time == null) return;
+                final picked = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                setModalState(() {
+                  if (isStart) {
+                    selectedStartAt = picked;
+                    if (!selectedEndAt.isAfter(selectedStartAt)) {
+                      selectedEndAt = selectedStartAt.add(const Duration(hours: 1));
+                    }
+                  } else {
+                    selectedEndAt = picked;
+                  }
+                });
+              }
+
               return SafeArea(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
@@ -273,61 +299,43 @@ class ScheduleDetailPage extends ConsumerWidget {
                             setModalState(() => isAllDay = value),
                       ),
                       const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: <Widget>[
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2035),
-                                initialDate: selectedDate,
-                              );
-                              if (picked != null) {
-                                setModalState(() => selectedDate = picked);
-                              }
-                            },
-                            icon: const Icon(Icons.calendar_month_outlined),
-                            label: Text(
-                              DateFormat('M月d日').format(selectedDate),
-                            ),
-                          ),
-                          if (!isAllDay)
-                            OutlinedButton.icon(
-                              onPressed: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: selectedTime,
-                                );
-                                if (picked != null) {
-                                  setModalState(() => selectedTime = picked);
-                                }
-                              },
-                              icon: const Icon(Icons.schedule),
-                              label: Text(selectedTime.format(context)),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      if (!isAllDay)
-                        _ChoiceGroup<ScheduleDurationOption>(
-                          title: '时长',
-                          value: selectedDuration,
-                          values: ScheduleDurationOption.values,
-                          labelBuilder: (value) => value.label,
-                          onChanged: (value) =>
-                              setModalState(() => selectedDuration = value),
-                        )
-                      else
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            '全天默认占用所选日期 00:00 - 次日 00:00。',
-                            style: Theme.of(context).textTheme.bodyMedium,
+                      if (!isAllDay) ...<Widget>[
+                        OutlinedButton.icon(
+                          onPressed: () => pickDateTime(isStart: true),
+                          icon: const Icon(Icons.schedule, size: 16),
+                          label: Text(
+                            '开始：${DateFormat('M月d日 HH:mm').format(selectedStartAt)}',
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => pickDateTime(isStart: false),
+                          icon: const Icon(Icons.schedule_outlined, size: 16),
+                          label: Text(
+                            '结束：${DateFormat('M月d日 HH:mm').format(selectedEndAt)}',
+                          ),
+                        ),
+                      ] else
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2035),
+                              initialDate: selectedStartAt,
+                            );
+                            if (picked != null) {
+                              setModalState(() => selectedStartAt = DateTime(
+                                picked.year, picked.month, picked.day,
+                              ));
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_month_outlined),
+                          label: Text(
+                            DateFormat('M月d日').format(selectedStartAt),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: locationController,
                         decoration: const InputDecoration(
@@ -394,17 +402,13 @@ class ScheduleDetailPage extends ConsumerWidget {
       }
 
       final localStart = isAllDay
-          ? DateTime(selectedDate.year, selectedDate.month, selectedDate.day)
-          : DateTime(
-              selectedDate.year,
-              selectedDate.month,
-              selectedDate.day,
-              selectedTime.hour,
-              selectedTime.minute,
-            );
+          ? DateTime(selectedStartAt.year, selectedStartAt.month, selectedStartAt.day)
+          : selectedStartAt;
       final localEnd = isAllDay
           ? localStart.add(const Duration(days: 1))
-          : localStart.add(Duration(minutes: selectedDuration.minutes));
+          : (selectedEndAt.isAfter(selectedStartAt)
+              ? selectedEndAt
+              : selectedStartAt.add(const Duration(hours: 1)));
 
       await ref.read(scheduleActionsProvider).updateSchedule(
         schedule: schedule,
@@ -642,14 +646,6 @@ class ScheduleDetailPage extends ConsumerWidget {
           ],
         );
       },
-    );
-  }
-
-  ScheduleDurationOption _durationFromSchedule(SchedulesTableData schedule) {
-    final minutes = schedule.endAt.difference(schedule.startAt).inMinutes;
-    return ScheduleDurationOption.values.firstWhere(
-      (option) => option.minutes == minutes,
-      orElse: () => ScheduleDurationOption.oneHour,
     );
   }
 }

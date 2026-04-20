@@ -67,6 +67,7 @@ class ScheduleViewCard extends StatelessWidget {
     required this.onOpenScheduleDetail,
     required this.onSelectDate,
     required this.onSelectMonth,
+    required this.onInlineCreate,
     super.key,
   });
 
@@ -78,6 +79,8 @@ class ScheduleViewCard extends StatelessWidget {
   final ValueChanged<SchedulesTableData> onOpenScheduleDetail;
   final ValueChanged<DateTime> onSelectDate;
   final ValueChanged<DateTime> onSelectMonth;
+  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
+      onInlineCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -88,22 +91,26 @@ class ScheduleViewCard extends StatelessWidget {
         pendingScheduleIds: pendingScheduleIds,
         onToggleSchedule: onToggleSchedule,
         onOpenScheduleDetail: onOpenScheduleDetail,
+        onInlineCreate: onInlineCreate,
       ),
       ScheduleViewMode.week => WeekScheduleView(
         focusDate: focusDate,
         schedules: schedules,
         onOpenScheduleDetail: onOpenScheduleDetail,
+        onInlineCreate: onInlineCreate,
       ),
       ScheduleViewMode.month => MonthScheduleView(
         focusDate: focusDate,
         schedules: schedules,
         onOpenScheduleDetail: onOpenScheduleDetail,
         onSelectDate: onSelectDate,
+        onInlineCreate: onInlineCreate,
       ),
       ScheduleViewMode.year => YearScheduleView(
         focusDate: focusDate,
         schedules: schedules,
         onSelectMonth: onSelectMonth,
+        onInlineCreate: onInlineCreate,
       ),
     };
 
@@ -113,13 +120,14 @@ class ScheduleViewCard extends StatelessWidget {
   }
 }
 
-class DayScheduleView extends StatelessWidget {
+class DayScheduleView extends StatefulWidget {
   const DayScheduleView({
     required this.focusDate,
     required this.schedules,
     required this.pendingScheduleIds,
     required this.onToggleSchedule,
     required this.onOpenScheduleDetail,
+    required this.onInlineCreate,
     super.key,
   });
 
@@ -128,39 +136,36 @@ class DayScheduleView extends StatelessWidget {
   final Set<String> pendingScheduleIds;
   final Future<void> Function(SchedulesTableData, bool) onToggleSchedule;
   final ValueChanged<SchedulesTableData> onOpenScheduleDetail;
+  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
+      onInlineCreate;
+
+  @override
+  State<DayScheduleView> createState() => _DayScheduleViewState();
+}
+
+class _DayScheduleViewState extends State<DayScheduleView> {
+  int? _editingHour; // null = no inline editor open
 
   @override
   Widget build(BuildContext context) {
     final daySchedules =
-        schedules
+        widget.schedules
             .where(
-              (schedule) => sameDate(schedule.startAt.toLocal(), focusDate),
+              (s) => sameDate(s.startAt.toLocal(), widget.focusDate),
             )
             .toList()
           ..sort((a, b) => a.startAt.compareTo(b.startAt));
 
-    if (daySchedules.isEmpty) {
-      return const EmptyScheduleViewState(
-        title: '这一天还没有日程',
-        description: '可以先新增一条日程，日视图会按小时展示。',
-      );
-    }
-
-    final allDaySchedules = daySchedules
-        .where((schedule) => schedule.isAllDay)
-        .toList();
-    final timedSchedules = daySchedules
-        .where((schedule) => !schedule.isAllDay)
-        .toList();
+    final allDaySchedules =
+        daySchedules.where((s) => s.isAllDay).toList();
+    final timedSchedules =
+        daySchedules.where((s) => !s.isAllDay).toList();
 
     final grouped = <int, List<SchedulesTableData>>{};
-    for (final schedule in timedSchedules) {
+    for (final s in timedSchedules) {
       grouped
-          .putIfAbsent(
-            schedule.startAt.toLocal().hour,
-            () => <SchedulesTableData>[],
-          )
-          .add(schedule);
+          .putIfAbsent(s.startAt.toLocal().hour, () => <SchedulesTableData>[])
+          .add(s);
     }
 
     return Column(
@@ -190,11 +195,11 @@ class DayScheduleView extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 ...allDaySchedules.map(
-                  (schedule) => Padding(
+                  (s) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _AllDaySchedulePill(
-                      schedule: schedule,
-                      onOpenScheduleDetail: onOpenScheduleDetail,
+                      schedule: s,
+                      onOpenScheduleDetail: widget.onOpenScheduleDetail,
                     ),
                   ),
                 ),
@@ -203,63 +208,99 @@ class DayScheduleView extends StatelessWidget {
           ),
           const SizedBox(height: 10),
         ],
-        if (timedSchedules.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: Text(
-              '今天暂无分时段日程',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          )
-        else
-          ...List<Widget>.generate(17, (index) {
-            final hour = index + 6;
-            final items = grouped[hour] ?? const <SchedulesTableData>[];
+        // 24-hour timeline
+        ...List<Widget>.generate(24, (index) {
+          final hour = index;
+          final items = grouped[hour] ?? const <SchedulesTableData>[];
+          final isEditing = _editingHour == hour;
 
-            return Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0x11000000))),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  SizedBox(
-                    width: 58,
-                    child: Text(
-                      '${hour.toString().padLeft(2, '0')}:00',
-                      style: Theme.of(context).textTheme.bodySmall,
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0x11000000))),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // 左侧时间轴
+                SizedBox(
+                  width: 52,
+                  child: Text(
+                    '${hour.toString().padLeft(2, '0')}:00',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
                     ),
                   ),
-                  Expanded(
-                    child: items.isEmpty
-                        ? const SizedBox(height: 10)
-                        : Column(
-                            children: items
-                                .map(
-                                  (schedule) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: DayScheduleBlock(
-                                      schedule: schedule,
-                                      isPending: pendingScheduleIds.contains(
-                                        schedule.id,
-                                      ),
-                                      onChanged: (value) => onToggleSchedule(
-                                        schedule,
-                                        value ?? false,
-                                      ),
-                                      onOpenDetail: () =>
-                                          onOpenScheduleDetail(schedule),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
+                ),
+                // 右侧内容区
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      if (items.isNotEmpty)
+                        ...items.map(
+                          (s) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: DayScheduleBlock(
+                              schedule: s,
+                              isPending: widget.pendingScheduleIds
+                                  .contains(s.id),
+                              onChanged: (v) => widget.onToggleSchedule(
+                                s,
+                                v ?? false,
+                              ),
+                              onOpenDetail: () =>
+                                  widget.onOpenScheduleDetail(s),
+                            ),
                           ),
+                        ),
+                      if (isEditing)
+                        _InlineEditor(
+                          hint: '${hour.toString().padLeft(2, '0')}:00 的日程',
+                          onSubmit: (title) async {
+                            final d = widget.focusDate;
+                            final start = DateTime(
+                              d.year, d.month, d.day, hour,
+                            ).toUtc();
+                            final end = start.add(const Duration(hours: 1));
+                            await widget.onInlineCreate(title, start, end, false);
+                            if (mounted) setState(() => _editingHour = null);
+                          },
+                          onCancel: () =>
+                              setState(() => _editingHour = null),
+                        )
+                      else
+                        // 点击空白区域打开编辑器
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () =>
+                              setState(() => _editingHour = hour),
+                          child: Container(
+                            height: 24,
+                            alignment: Alignment.centerLeft,
+                            child: items.isEmpty
+                                ? Text(
+                                    '+ 点击添加',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .outline
+                                              .withOpacity(0.4),
+                                        ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          }),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -357,36 +398,45 @@ class _AllDaySchedulePill extends StatelessWidget {
   }
 }
 
-class WeekScheduleView extends StatelessWidget {
+class WeekScheduleView extends StatefulWidget {
   const WeekScheduleView({
     required this.focusDate,
     required this.schedules,
     required this.onOpenScheduleDetail,
+    required this.onInlineCreate,
     super.key,
   });
 
   final DateTime focusDate;
   final List<SchedulesTableData> schedules;
   final ValueChanged<SchedulesTableData> onOpenScheduleDetail;
+  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
+      onInlineCreate;
+
+  @override
+  State<WeekScheduleView> createState() => _WeekScheduleViewState();
+}
+
+class _WeekScheduleViewState extends State<WeekScheduleView> {
+  DateTime? _editingDay;
 
   @override
   Widget build(BuildContext context) {
-    final weekStart = startOfWeek(focusDate);
+    final weekStart = startOfWeek(widget.focusDate);
 
     return Column(
       children: List<Widget>.generate(7, (index) {
         final day = weekStart.add(Duration(days: index));
         final daySchedules =
-            schedules
-                .where((schedule) => sameDate(schedule.startAt.toLocal(), day))
+            widget.schedules
+                .where((s) => sameDate(s.startAt.toLocal(), day))
                 .toList()
               ..sort((a, b) => a.startAt.compareTo(b.startAt));
-        final allDaySchedules = daySchedules
-            .where((schedule) => schedule.isAllDay)
-            .toList();
-        final timedSchedules = daySchedules
-            .where((schedule) => !schedule.isAllDay)
-            .toList();
+        final allDaySchedules = daySchedules.where((s) => s.isAllDay).toList();
+        final timedSchedules =
+            daySchedules.where((s) => !s.isAllDay).toList();
+        final isEditing =
+            _editingDay != null && sameDate(_editingDay!, day);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
@@ -398,66 +448,110 @@ class WeekScheduleView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                '${weekdayShort(day.weekday)} ${DateFormat('M月d日').format(day)}',
-                style: Theme.of(context).textTheme.titleMedium,
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      '${weekdayShort(day.weekday)} ${DateFormat('M月d日').format(day)}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  if (!isEditing)
+                    IconButton(
+                      icon: const Icon(Icons.add, size: 18),
+                      tooltip: '添加计划',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () =>
+                          setState(() => _editingDay = day),
+                    ),
+                ],
               ),
-              const SizedBox(height: 8),
-              if (daySchedules.isEmpty)
-                const Text('当天暂无日程')
-              else ...<Widget>[
-                if (allDaySchedules.isNotEmpty) ...<Widget>[
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: allDaySchedules
-                        .map(
-                          (schedule) => InkWell(
-                            borderRadius: BorderRadius.circular(999),
-                            onTap: () => onOpenScheduleDetail(schedule),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFE0B2),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                '全天 ${schedule.title}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: const Color(0xFF7A4B00),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
+              if (allDaySchedules.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: allDaySchedules
+                      .map(
+                        (s) => InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: () => widget.onOpenScheduleDetail(s),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFE0B2),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '全天 ${s.title}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: const Color(0xFF7A4B00),
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
                           ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 8),
-                ],
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+              if (timedSchedules.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 6),
                 ...timedSchedules.map(
-                  (schedule) => Padding(
+                  (s) => Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      onTap: () => onOpenScheduleDetail(schedule),
+                      onTap: () => widget.onOpenScheduleDetail(s),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 6,
                         ),
                         child: Text(
-                          '${DateFormat('HH:mm').format(schedule.startAt.toLocal())} ${schedule.title}',
+                          '${DateFormat('HH:mm').format(s.startAt.toLocal())} ${s.title}',
                         ),
                       ),
                     ),
                   ),
+                ),
+              ],
+              if (daySchedules.isEmpty && !isEditing)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '当天暂无日程，点击 + 添加',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.5),
+                    ),
+                  ),
+                ),
+              if (isEditing) ...<Widget>[
+                const SizedBox(height: 8),
+                _InlineEditor(
+                  hint: '${DateFormat('M月d日').format(day)} 的计划',
+                  onSubmit: (title) async {
+                    final start = DateTime(
+                      day.year, day.month, day.day,
+                    ).toUtc();
+                    final end = DateTime(
+                      day.year, day.month, day.day + 1,
+                    ).toUtc();
+                    await widget.onInlineCreate(title, start, end, true);
+                    if (mounted) setState(() => _editingDay = null);
+                  },
+                  onCancel: () => setState(() => _editingDay = null),
                 ),
               ],
             ],
@@ -468,12 +562,13 @@ class WeekScheduleView extends StatelessWidget {
   }
 }
 
-class MonthScheduleView extends StatelessWidget {
+class MonthScheduleView extends StatefulWidget {
   const MonthScheduleView({
     required this.focusDate,
     required this.schedules,
     required this.onOpenScheduleDetail,
     required this.onSelectDate,
+    required this.onInlineCreate,
     super.key,
   });
 
@@ -481,196 +576,267 @@ class MonthScheduleView extends StatelessWidget {
   final List<SchedulesTableData> schedules;
   final ValueChanged<SchedulesTableData> onOpenScheduleDetail;
   final ValueChanged<DateTime> onSelectDate;
+  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
+      onInlineCreate;
+
+  @override
+  State<MonthScheduleView> createState() => _MonthScheduleViewState();
+}
+
+class _MonthScheduleViewState extends State<MonthScheduleView> {
+  int? _editingWeek; // week index 0-5
 
   @override
   Widget build(BuildContext context) {
-    final monthStart = DateTime(focusDate.year, focusDate.month, 1);
-    final gridStart = monthStart.subtract(
-      Duration(days: monthStart.weekday - 1),
-    );
+    final monthStart = DateTime(widget.focusDate.year, widget.focusDate.month, 1);
+    final gridStart = monthStart.subtract(Duration(days: monthStart.weekday - 1));
+    final theme = Theme.of(context);
 
     return Column(
-      children: <Widget>[
-        Row(
-          children: const <Widget>[
-            MonthWeekday(label: '一'),
-            MonthWeekday(label: '二'),
-            MonthWeekday(label: '三'),
-            MonthWeekday(label: '四'),
-            MonthWeekday(label: '五'),
-            MonthWeekday(label: '六'),
-            MonthWeekday(label: '日'),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ...List<Widget>.generate(6, (weekIndex) {
-          return Row(
-            children: List<Widget>.generate(7, (dayIndex) {
-              final day = gridStart.add(
-                Duration(days: weekIndex * 7 + dayIndex),
-              );
-              final daySchedules =
-                  schedules
-                      .where(
-                        (schedule) => sameDate(schedule.startAt.toLocal(), day),
-                      )
-                      .toList()
-                    ..sort((a, b) => a.startAt.compareTo(b.startAt));
-              final allDaySchedules = daySchedules
-                  .where((schedule) => schedule.isAllDay)
-                  .toList();
-              final previewSchedules = <SchedulesTableData>[
-                ...allDaySchedules,
-                ...daySchedules.where((schedule) => !schedule.isAllDay),
-              ].take(1).toList();
-              final isCurrentMonth = day.month == focusDate.month;
+      children: List<Widget>.generate(6, (weekIndex) {
+        final weekStart = gridStart.add(Duration(days: weekIndex * 7));
+        final weekEnd = weekStart.add(const Duration(days: 7));
+        final weekSchedules = widget.schedules
+            .where((s) {
+              final d = s.startAt.toLocal();
+              return !d.isBefore(weekStart) && d.isBefore(weekEnd);
+            })
+            .toList()
+          ..sort((a, b) => a.startAt.compareTo(b.startAt));
+        final isEditing = _editingWeek == weekIndex;
 
-              return Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => onSelectDate(day),
-                  child: Container(
-                    height: 100,
-                    margin: const EdgeInsets.all(2),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isCurrentMonth
-                          ? const Color(0xFFF8F6F1)
-                          : const Color(0xFFF1EFE9),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+        // 跳过完全不属于本月的周
+        final hasCurrentMonth = List.generate(7, (i) => weekStart.add(Duration(days: i)))
+            .any((d) => d.month == widget.focusDate.month);
+        if (!hasCurrentMonth) return const SizedBox.shrink();
+
+        final weekLabel =
+            '${DateFormat('M/d').format(weekStart)}–${DateFormat('M/d').format(weekEnd.subtract(const Duration(days: 1)))}';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F6F1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: isEditing ? null : () => setState(() => _editingWeek = weekIndex),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  // 左侧纵轴：周标签
+                  SizedBox(
+                    width: 72,
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          '${day.day}',
-                          style: TextStyle(
-                            color: isCurrentMonth
-                                ? Theme.of(context).colorScheme.onSurface
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
+                          '第${weekIndex + 1}周',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        if (daySchedules.isNotEmpty)
-                          Text(
-                            '${daySchedules.length} 项',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: const Color(0xFF136F63)),
+                        Text(
+                          weekLabel,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline,
                           ),
-                        if (allDaySchedules.isNotEmpty)
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // 右侧内容区
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (isEditing)
+                          _InlineEditor(
+                            hint: '添加本周计划',
+                            compact: true,
+                            onSubmit: (title) async {
+                              final start = weekStart.toUtc();
+                              final end = weekEnd.toUtc();
+                              await widget.onInlineCreate(title, start, end, true);
+                              if (mounted) setState(() => _editingWeek = null);
+                            },
+                            onCancel: () => setState(() => _editingWeek = null),
+                          )
+                        else if (weekSchedules.isEmpty)
                           Text(
-                            '全天 ${allDaySchedules.length}',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: const Color(0xFF7A4B00)),
-                          ),
-                        const SizedBox(height: 4),
-                        ...previewSchedules
-                            .map(
-                              (schedule) => InkWell(
-                                onTap: () => onOpenScheduleDetail(schedule),
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 2),
-                                  child: Text(
-                                    schedule.isAllDay
-                                        ? '全天 ${schedule.title}'
-                                        : '${DateFormat('HH:mm').format(schedule.startAt.toLocal())} ${schedule.title}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: const Color(0xFF114B45),
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                            '+ 点击添加计划',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.outline.withOpacity(0.5),
+                            ),
+                          )
+                        else
+                          ...weekSchedules.take(3).map(
+                            (s) => InkWell(
+                              onTap: () => widget.onOpenScheduleDetail(s),
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  s.isAllDay
+                                      ? '全天 ${s.title}'
+                                      : '${DateFormat('E HH:mm', 'zh').format(s.startAt.toLocal())} ${s.title}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFF114B45),
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
                             ),
+                          ),
+                        if (!isEditing && weekSchedules.length > 3)
+                          Text(
+                            '还有 ${weekSchedules.length - 3} 项...',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                ),
-              );
-            }),
-          );
-        }),
-      ],
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
 
-class YearScheduleView extends StatelessWidget {
+class YearScheduleView extends StatefulWidget {
   const YearScheduleView({
     required this.focusDate,
     required this.schedules,
     required this.onSelectMonth,
+    required this.onInlineCreate,
     super.key,
   });
 
   final DateTime focusDate;
   final List<SchedulesTableData> schedules;
   final ValueChanged<DateTime> onSelectMonth;
+  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
+      onInlineCreate;
+
+  @override
+  State<YearScheduleView> createState() => _YearScheduleViewState();
+}
+
+class _YearScheduleViewState extends State<YearScheduleView> {
+  int? _editingMonth;
 
   @override
   Widget build(BuildContext context) {
-    final yearSchedules = schedules
-        .where((schedule) => schedule.startAt.toLocal().year == focusDate.year)
+    final yearSchedules = widget.schedules
+        .where((s) => s.startAt.toLocal().year == widget.focusDate.year)
         .toList();
+    final theme = Theme.of(context);
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+    return Column(
       children: List<Widget>.generate(12, (index) {
         final month = index + 1;
-        final monthSchedules =
-            yearSchedules
-                .where((schedule) => schedule.startAt.toLocal().month == month)
-                .toList()
-              ..sort((a, b) => a.startAt.compareTo(b.startAt));
-        final allDayCount =
-            monthSchedules.where((schedule) => schedule.isAllDay).length;
+        final monthSchedules = yearSchedules
+            .where((s) => s.startAt.toLocal().month == month)
+            .toList()
+          ..sort((a, b) => a.startAt.compareTo(b.startAt));
+        final isEditing = _editingMonth == month;
 
-        return SizedBox(
-          width: 160,
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F6F1),
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => onSelectMonth(DateTime(focusDate.year, month, 1)),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F6F1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            borderRadius: BorderRadius.circular(14),
+            onTap: isEditing ? null : () => setState(() => _editingMonth = month),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
-                    '$month月',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text('共 ${monthSchedules.length} 项日程'),
-                  if (allDayCount > 0)
-                    Text(
-                      '全天 $allDayCount 项',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: const Color(0xFF7A4B00)),
+                  // 左侧纵轴：月份标签
+                  SizedBox(
+                    width: 48,
+                    child: InkWell(
+                      onTap: () => widget.onSelectMonth(
+                        DateTime(widget.focusDate.year, month, 1),
+                      ),
+                      child: Text(
+                        '$month月',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                  const SizedBox(height: 6),
-                  if (monthSchedules.isNotEmpty)
-                    Text(
-                      '最近：${monthSchedules.first.title}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    )
-                  else
-                    const Text('本月暂无日程'),
+                  ),
+                  const SizedBox(width: 12),
+                  // 右侧内容区
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (isEditing)
+                          _InlineEditor(
+                            hint: '$month月的目标计划',
+                            compact: true,
+                            onSubmit: (title) async {
+                              final start = DateTime(
+                                widget.focusDate.year, month, 1,
+                              ).toUtc();
+                              final end = DateTime(
+                                widget.focusDate.year, month + 1, 1,
+                              ).toUtc();
+                              await widget.onInlineCreate(title, start, end, true);
+                              if (mounted) setState(() => _editingMonth = null);
+                            },
+                            onCancel: () => setState(() => _editingMonth = null),
+                          )
+                        else if (monthSchedules.isEmpty)
+                          Text(
+                            '+ 点击添加目标',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.outline.withOpacity(0.5),
+                            ),
+                          )
+                        else
+                          ...monthSchedules.take(3).map(
+                            (s) => InkWell(
+                              onTap: () {},
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  s.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFF114B45),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (!isEditing && monthSchedules.length > 3)
+                          Text(
+                            '还有 ${monthSchedules.length - 3} 项...',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -746,4 +912,105 @@ String weekdayShort(int weekday) {
     DateTime.sunday: '周日',
   };
   return labels[weekday] ?? '';
+}
+
+/// Lightweight inline text editor used in calendar views to quickly create
+/// a schedule entry without navigating away.
+class _InlineEditor extends StatefulWidget {
+  const _InlineEditor({
+    required this.hint,
+    required this.onSubmit,
+    required this.onCancel,
+    this.compact = false,
+  });
+
+  final String hint;
+  final Future<void> Function(String title) onSubmit;
+  final VoidCallback onCancel;
+  final bool compact;
+
+  @override
+  State<_InlineEditor> createState() => _InlineEditorState();
+}
+
+class _InlineEditorState extends State<_InlineEditor> {
+  final _controller = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final title = _controller.text.trim();
+    if (title.isEmpty) return;
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit(title);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: TextField(
+            controller: _controller,
+            autofocus: true,
+            enabled: !_submitting,
+            style: widget.compact
+                ? theme.textTheme.bodySmall
+                : theme.textTheme.bodyMedium,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline.withOpacity(0.5),
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 6,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: theme.colorScheme.outline),
+              ),
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+        ),
+        const SizedBox(width: 4),
+        if (_submitting)
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else ...<Widget>[
+          IconButton(
+            icon: const Icon(Icons.check, size: 18),
+            tooltip: '确认',
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: _submit,
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            tooltip: '取消',
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: widget.onCancel,
+          ),
+        ],
+      ],
+    );
+  }
 }

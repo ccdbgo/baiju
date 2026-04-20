@@ -4,9 +4,11 @@ import 'package:baiju_app/core/notifications/app_notification_service.dart';
 import 'package:baiju_app/core/notifications/reminder_scheduler.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_providers.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
+  if (kIsWeb) return const NoopReminderScheduler();
   return AppNotificationService.instance;
 });
 
