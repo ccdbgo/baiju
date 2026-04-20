@@ -1,4 +1,5 @@
 import 'package:baiju_app/core/database/app_database.dart';
+import 'package:baiju_app/core/notifications/app_notification_service.dart';
 import 'package:baiju_app/core/notifications/notification_providers.dart';
 import 'package:baiju_app/features/anniversary/presentation/providers/anniversary_providers.dart';
 import 'package:baiju_app/features/goal/presentation/providers/goal_providers.dart';
@@ -13,6 +14,8 @@ import 'package:baiju_app/features/today/presentation/widgets/today_overview_car
 import 'package:baiju_app/features/todo/domain/todo_filter.dart';
 import 'package:baiju_app/features/todo/presentation/providers/todo_providers.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_providers.dart';
+import 'package:baiju_app/features/weather/presentation/providers/weather_providers.dart';
+import 'package:baiju_app/features/weather/presentation/widgets/weather_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -57,6 +60,15 @@ class _TodayPageState extends ConsumerState<TodayPage> {
       orElse: () => const AppDisplaySettings(),
     );
 
+    // Trigger severe weather notification when weather data arrives.
+    ref.listen(currentWeatherProvider, (_, next) {
+      next.whenData((info) {
+        if (info != null && info.hasSevereAlert) {
+          AppNotificationService.instance.showWeatherAlert(info);
+        }
+      });
+    });
+
     return SafeArea(
       top: false,
       child: ListView(
@@ -69,6 +81,10 @@ class _TodayPageState extends ConsumerState<TodayPage> {
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 18),
+          if (settings.showWeather) ...<Widget>[
+            const WeatherCard(),
+            const SizedBox(height: 16),
+          ],
           TodayOverviewCard(
             todoSummary: summary,
             scheduleSummary: scheduleSummary,

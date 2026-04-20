@@ -1,5 +1,6 @@
 import 'package:baiju_app/core/database/app_database.dart';
 import 'package:baiju_app/core/notifications/reminder_scheduler.dart';
+import 'package:baiju_app/features/weather/domain/weather_models.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -155,6 +156,21 @@ class AppNotificationService implements ReminderScheduler {
   @override
   Future<List<PendingNotificationRequest>> pendingReminderRequests() {
     return _plugin.pendingNotificationRequests();
+  }
+
+  Future<void> showWeatherAlert(WeatherInfo info) async {
+    if (!_initialized || !info.hasSevereAlert) return;
+    await _plugin.show(
+      id: 'weather:alert'.hashCode & 0x7fffffff,
+      title: '恶劣天气提醒',
+      body: info.alertMessage,
+      notificationDetails: _defaultDetails(
+        channelId: 'baiju_weather',
+        channelName: '天气预警',
+        channelDescription: '白驹的恶劣天气提醒通知',
+      ),
+      payload: 'weather:alert',
+    );
   }
 
   Future<void> _requestPermissions() async {

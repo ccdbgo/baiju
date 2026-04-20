@@ -60,10 +60,16 @@ class AppShell extends StatelessWidget {
       branchIndex: 7,
     ),
     _ShellItem(
+      label: '天气',
+      icon: Icons.wb_sunny_outlined,
+      selectedIcon: Icons.wb_sunny,
+      branchIndex: 8,
+    ),
+    _ShellItem(
       label: '设置',
       icon: Icons.settings_outlined,
       selectedIcon: Icons.settings,
-      branchIndex: 8,
+      branchIndex: 9,
     ),
   ];
 

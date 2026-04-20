@@ -4,18 +4,21 @@ class AppDisplaySettings {
     this.showActiveTodoPreview = true,
     this.showUpcomingAnniversaries = true,
     this.showRecentNotes = true,
+    this.showWeather = true,
   });
 
   final bool showTodayHero;
   final bool showActiveTodoPreview;
   final bool showUpcomingAnniversaries;
   final bool showRecentNotes;
+  final bool showWeather;
 
   AppDisplaySettings copyWith({
     bool? showTodayHero,
     bool? showActiveTodoPreview,
     bool? showUpcomingAnniversaries,
     bool? showRecentNotes,
+    bool? showWeather,
   }) {
     return AppDisplaySettings(
       showTodayHero: showTodayHero ?? this.showTodayHero,
@@ -24,6 +27,7 @@ class AppDisplaySettings {
       showUpcomingAnniversaries:
           showUpcomingAnniversaries ?? this.showUpcomingAnniversaries,
       showRecentNotes: showRecentNotes ?? this.showRecentNotes,
+      showWeather: showWeather ?? this.showWeather,
     );
   }
 }

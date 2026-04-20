@@ -82,6 +82,18 @@ class UserRepository {
     return switchUser(userId: userId, deviceId: deviceId);
   }
 
+  /// Returns the local user already bound to WeChat, or null if none.
+  Future<UsersTableData?> findLocalWechatUser() {
+    return (_database.select(_database.usersTable)
+          ..where(
+            (tbl) =>
+                tbl.deletedAt.isNull() &
+                tbl.authProvider.equals(AppUserAuthProvider.wechat.value),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   Future<UserWorkspace> signInWithWechat({
     required UserWorkspace currentWorkspace,
   }) async {

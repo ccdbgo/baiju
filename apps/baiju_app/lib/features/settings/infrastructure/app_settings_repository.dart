@@ -13,6 +13,7 @@ class AppSettingsRepository {
   static const String _showUpcomingAnniversariesKey =
       'show_upcoming_anniversaries';
   static const String _showRecentNotesKey = 'show_recent_notes';
+  static const String _showWeatherKey = 'show_weather';
   static const String _supportCategoryKey = 'support_category';
   static const String _supportContactKey = 'support_contact';
   static const String _supportMessageKey = 'support_message';
@@ -24,6 +25,7 @@ class AppSettingsRepository {
             _showActiveTodoPreviewKey,
             _showUpcomingAnniversariesKey,
             _showRecentNotesKey,
+            _showWeatherKey,
           ]),
         ))
         .watch()
@@ -42,6 +44,7 @@ class AppSettingsRepository {
               true,
             ),
             showRecentNotes: _parseBool(values[_showRecentNotesKey], true),
+            showWeather: _parseBool(values[_showWeatherKey], true),
           );
         });
   }
@@ -60,6 +63,7 @@ class AppSettingsRepository {
       now,
     );
     await _saveBool(_showRecentNotesKey, settings.showRecentNotes, now);
+    await _saveBool(_showWeatherKey, settings.showWeather, now);
   }
 
   Stream<AppSupportDraft> watchSupportDraft() {

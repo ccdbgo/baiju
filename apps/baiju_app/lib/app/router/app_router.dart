@@ -26,6 +26,7 @@ import 'package:baiju_app/features/todo/presentation/pages/todo_page.dart';
 import 'package:baiju_app/features/user/presentation/pages/login_page.dart';
 import 'package:baiju_app/features/user/presentation/pages/register_page.dart';
 import 'package:baiju_app/features/user/presentation/pages/user_overview_page.dart';
+import 'package:baiju_app/features/weather/presentation/pages/weather_page.dart';
 import 'package:baiju_app/shared/widgets/app_shell.dart';
 import 'package:go_router/go_router.dart';
 
@@ -224,6 +225,15 @@ class AppRouter {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/weather',
+                pageBuilder: (context, state) =>
+                    NoTransitionPage<void>(child: const WeatherPage()),
               ),
             ],
           ),

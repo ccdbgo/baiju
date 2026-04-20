@@ -133,6 +133,14 @@ class _DisplaySettingsPanel extends StatelessWidget {
           onChanged: (value) =>
               onChanged(settings.copyWith(showRecentNotes: value)),
         ),
+        SwitchListTile(
+          value: settings.showWeather,
+          contentPadding: EdgeInsets.zero,
+          title: const Text('显示天气预报'),
+          subtitle: const Text('需要位置权限，恶劣天气时发送通知'),
+          onChanged: (value) =>
+              onChanged(settings.copyWith(showWeather: value)),
+        ),
       ],
     );
   }
