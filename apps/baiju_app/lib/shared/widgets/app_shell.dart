@@ -268,70 +268,77 @@ class AppShell extends StatelessWidget {
     final branchIndex = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text('全部功能', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                Text(
-                  '移动端底部保留高频入口，其余模块从这里快速进入。',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _items.map((item) {
-                    final isActive =
-                        item.branchIndex == navigationShell.currentIndex;
-                    return SizedBox(
-                      width: 148,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: item.branchIndex == null
-                            ? null
-                            : () => Navigator.of(context).pop(item.branchIndex),
-                        child: Card(
-                          color: isActive
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : null,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Icon(
-                                  isActive ? item.selectedIcon : item.icon,
-                                  size: 24,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  item.label,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  isActive ? '当前所在模块' : '点击进入',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                child: CustomScrollView(
+                  controller: scrollController,
+                  slivers: <Widget>[
+                    SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text('全部功能', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          Text(
+                            '移动端底部保留高频入口，其余模块从这里快速进入。',
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                        ],
                       ),
-                    );
-                  }).toList(),
+                    ),
+                    SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 1.6,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final item = _items[index];
+                          final isActive = item.branchIndex == navigationShell.currentIndex;
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: item.branchIndex == null
+                                ? null
+                                : () => Navigator.of(context).pop(item.branchIndex),
+                            child: Card(
+                              color: isActive
+                                  ? Theme.of(context).colorScheme.primaryContainer
+                                  : null,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: <Widget>[
+                                    Icon(isActive ? item.selectedIcon : item.icon, size: 24),
+                                    const SizedBox(height: 8),
+                                    Text(item.label, style: Theme.of(context).textTheme.titleMedium),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        childCount: _items.length,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );

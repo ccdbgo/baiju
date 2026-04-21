@@ -31,10 +31,16 @@ class AppNotificationService implements ReminderScheduler {
       requestBadgePermission: false,
       requestSoundPermission: false,
     );
+    const windowsSettings = WindowsInitializationSettings(
+      appName: '白驹',
+      appUserModelId: 'com.baiju.baiju_app',
+      guid: 'a8b9c0d1-e2f3-4a5b-6c7d-8e9f0a1b2c3d',
+    );
     const settings = InitializationSettings(
       android: androidSettings,
       iOS: darwinSettings,
       macOS: darwinSettings,
+      windows: windowsSettings,
     );
 
     await _plugin.initialize(settings: settings);
@@ -211,6 +217,9 @@ class AppNotificationService implements ReminderScheduler {
       ),
       iOS: const DarwinNotificationDetails(),
       macOS: const DarwinNotificationDetails(),
+      windows: WindowsNotificationDetails(
+        actions: [],
+      ),
     );
   }
 
