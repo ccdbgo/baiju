@@ -439,122 +439,107 @@ class _WeekScheduleViewState extends State<WeekScheduleView> {
             _editingDay != null && sameDate(_editingDay!, day);
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
             color: const Color(0xFFF8F6F1),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: isEditing ? null : () => setState(() => _editingDay = day),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      '${weekdayShort(day.weekday)} ${DateFormat('M月d日').format(day)}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  if (!isEditing)
-                    IconButton(
-                      icon: const Icon(Icons.add, size: 18),
-                      tooltip: '添加计划',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () =>
-                          setState(() => _editingDay = day),
-                    ),
-                ],
-              ),
-              if (allDaySchedules.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: allDaySchedules
-                      .map(
-                        (s) => InkWell(
-                          borderRadius: BorderRadius.circular(999),
-                          onTap: () => widget.onOpenScheduleDetail(s),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFE0B2),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              '全天 ${s.title}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: const Color(0xFF7A4B00),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
+                  // 左侧纵轴：日期标签
+                  SizedBox(
+                    width: 72,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          weekdayShort(day.weekday),
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      )
-                      .toList(),
-                ),
-              ],
-              if (timedSchedules.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 6),
-                ...timedSchedules.map(
-                  (s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: () => widget.onOpenScheduleDetail(s),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 6,
+                        Text(
+                          DateFormat('M月d日').format(day),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
                         ),
-                        child: Text(
-                          '${DateFormat('HH:mm').format(s.startAt.toLocal())} ${s.title}',
-                        ),
-                      ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-              if (daySchedules.isEmpty && !isEditing)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    '当天暂无日程，点击 + 添加',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outline
-                          .withOpacity(0.5),
+                  const SizedBox(width: 12),
+                  // 右侧内容区
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (isEditing)
+                          _InlineEditor(
+                            hint: '${DateFormat('M月d日').format(day)} 的计划',
+                            compact: true,
+                            onSubmit: (title) async {
+                              final start = DateTime(day.year, day.month, day.day).toUtc();
+                              final end = DateTime(day.year, day.month, day.day + 1).toUtc();
+                              await widget.onInlineCreate(title, start, end, true);
+                              if (mounted) setState(() => _editingDay = null);
+                            },
+                            onCancel: () => setState(() => _editingDay = null),
+                          )
+                        else if (daySchedules.isEmpty)
+                          Text(
+                            '+ 点击添加计划',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                            ),
+                          )
+                        else ...<Widget>[
+                          ...allDaySchedules.map(
+                            (s) => InkWell(
+                              onTap: () => widget.onOpenScheduleDetail(s),
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  '全天 ${s.title}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFF114B45),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          ...timedSchedules.map(
+                            (s) => InkWell(
+                              onTap: () => widget.onOpenScheduleDetail(s),
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  '${DateFormat('HH:mm').format(s.startAt.toLocal())} ${s.title}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFF114B45),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ),
-              if (isEditing) ...<Widget>[
-                const SizedBox(height: 8),
-                _InlineEditor(
-                  hint: '${DateFormat('M月d日').format(day)} 的计划',
-                  onSubmit: (title) async {
-                    final start = DateTime(
-                      day.year, day.month, day.day,
-                    ).toUtc();
-                    final end = DateTime(
-                      day.year, day.month, day.day + 1,
-                    ).toUtc();
-                    await widget.onInlineCreate(title, start, end, true);
-                    if (mounted) setState(() => _editingDay = null);
-                  },
-                  onCancel: () => setState(() => _editingDay = null),
-                ),
-              ],
-            ],
+                ],
+              ),
+            ),
           ),
         );
       }),
