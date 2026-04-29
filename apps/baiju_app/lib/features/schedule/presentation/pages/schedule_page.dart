@@ -2,6 +2,7 @@ import 'package:baiju_app/core/database/app_database.dart';
 import 'package:baiju_app/features/schedule/domain/schedule_filter.dart';
 import 'package:baiju_app/features/schedule/presentation/providers/schedule_providers.dart';
 import 'package:baiju_app/features/schedule/presentation/widgets/schedule_calendar_views.dart';
+import 'package:baiju_app/features/todo/domain/todo_filter.dart';
 import 'package:baiju_app/features/user/domain/user_preferences.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_preferences_providers.dart';
 import 'package:baiju_app/shared/widgets/list_controls.dart';
@@ -347,6 +348,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     var selectedRecurrence = ScheduleRecurrenceRule.fromRule(
       schedule.recurrenceRule,
     );
+    var selectedPriority = TodoPriority.fromValue(schedule.priority);
 
     try {
       final confirmed = await showModalBottomSheet<bool>(
@@ -521,6 +523,24 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                           );
                         }).toList(),
                       ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '优先级（四象限）',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: TodoPriority.values.map((option) {
+                          return ChoiceChip(
+                            label: Text(option.label),
+                            selected: option == selectedPriority,
+                            onSelected: (_) =>
+                                setModalState(() => selectedPriority = option),
+                          );
+                        }).toList(),
+                      ),
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
@@ -562,6 +582,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         location: locationController.text,
         category: categoryController.text,
         isAllDay: isAllDay,
+        priority: selectedPriority,
       );
 
       if (mounted) {
@@ -633,6 +654,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         );
     var selectedReminder = defaultPreferences.defaultScheduleReminderOption;
     var selectedRecurrence = ScheduleRecurrenceRule.none;
+    var selectedPriority = TodoPriority.notUrgentImportant;
 
     try {
       final confirmed = await showModalBottomSheet<bool>(
@@ -821,6 +843,25 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                           );
                         }).toList(),
                       ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '优先级（四象限）',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: TodoPriority.values.map((option) {
+                          return ChoiceChip(
+                            label: Text(option.label),
+                            selected: option == selectedPriority,
+                            onSelected: (_) => setModalState(
+                              () => selectedPriority = option,
+                            ),
+                          );
+                        }).toList(),
+                      ),
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
@@ -872,6 +913,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             : descriptionController.text.trim(),
         recurrenceRule: selectedRecurrence.rule,
         reminderMinutesBefore: selectedReminder.minutes,
+        priority: selectedPriority,
       );
 
       if (mounted) {
@@ -1137,6 +1179,9 @@ class _ScheduleListItem extends StatelessWidget {
                             label: '全天',
                             color: Color(0xFF136F63),
                           ),
+                        _SchedulePriorityTag(
+                          priority: TodoPriority.fromValue(schedule.priority),
+                        ),
                         if (location != null && location.isNotEmpty)
                           _ScheduleTag(
                             label: '地点：$location',
@@ -1199,6 +1244,46 @@ class _ScheduleTag extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(color: color, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+}
+
+class _SchedulePriorityTag extends StatelessWidget {
+  const _SchedulePriorityTag({required this.priority});
+
+  final TodoPriority priority;
+
+  Color _color() {
+    switch (priority) {
+      case TodoPriority.urgentImportant:
+        return const Color(0xFFD32F2F);
+      case TodoPriority.notUrgentImportant:
+        return const Color(0xFF1565C0);
+      case TodoPriority.urgentNotImportant:
+        return const Color(0xFFE65100);
+      case TodoPriority.notUrgentNotImportant:
+        return const Color(0xFF2E7D32);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _color();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Text(
+          priority.label,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );

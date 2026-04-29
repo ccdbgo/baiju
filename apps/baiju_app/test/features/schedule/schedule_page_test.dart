@@ -24,6 +24,7 @@ void main() {
     category: '工作',
     color: null,
     status: 'planned',
+    priority: 'not_urgent_important',
     recurrenceRule: null,
     reminderMinutesBefore: 15,
     sourceTodoId: null,

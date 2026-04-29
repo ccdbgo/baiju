@@ -149,6 +149,7 @@ class ScheduleActions {
     String? location,
     String? category,
     bool isAllDay = false,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
   }) {
     return _repository.createSchedule(
       title: title,
@@ -161,6 +162,7 @@ class ScheduleActions {
       location: location,
       category: category,
       isAllDay: isAllDay,
+      priority: priority,
     );
   }
 
@@ -174,6 +176,7 @@ class ScheduleActions {
     String? description,
     String? recurrenceRule,
     int? reminderMinutesBefore,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
   }) {
     return _repository.createScheduleAt(
       title: title,
@@ -185,6 +188,7 @@ class ScheduleActions {
       description: description,
       recurrenceRule: recurrenceRule,
       reminderMinutesBefore: reminderMinutesBefore,
+      priority: priority,
     );
   }
 
@@ -206,6 +210,7 @@ class ScheduleActions {
     String? location,
     String? category,
     bool? isAllDay,
+    TodoPriority? priority,
   }) {
     return _repository.updateSchedule(
       schedule: schedule,
@@ -218,6 +223,7 @@ class ScheduleActions {
       location: location,
       category: category,
       isAllDay: isAllDay,
+      priority: priority,
     );
   }
 

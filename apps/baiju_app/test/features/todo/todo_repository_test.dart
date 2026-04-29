@@ -24,7 +24,7 @@ void main() {
   test('createTodo writes todo, sync queue and timeline event', () async {
     await repository.createTodo(
       title: '整理会议纪要',
-      priority: TodoPriority.high,
+      priority: TodoPriority.urgentImportant,
       dueToday: true,
     );
 
@@ -35,7 +35,7 @@ void main() {
 
     expect(todos, hasLength(1));
     expect(todos.single.title, '整理会议纪要');
-    expect(todos.single.priority, 'high');
+    expect(todos.single.priority, 'urgent_important');
     expect(todos.single.status, 'open');
     expect(syncQueue, hasLength(1));
     expect(syncQueue.single.operation, 'create');
@@ -47,7 +47,7 @@ void main() {
       () async {
     await repository.createTodo(
       title: '完成周报',
-      priority: TodoPriority.medium,
+      priority: TodoPriority.notUrgentImportant,
       dueToday: false,
     );
 
@@ -75,12 +75,12 @@ void main() {
   test('watchTodos filters active and completed lists correctly', () async {
     await repository.createTodo(
       title: '今日复盘',
-      priority: TodoPriority.low,
+      priority: TodoPriority.notUrgentNotImportant,
       dueToday: false,
     );
     await repository.createTodo(
       title: '提交报销',
-      priority: TodoPriority.high,
+      priority: TodoPriority.urgentImportant,
       dueToday: true,
     );
 
@@ -106,7 +106,7 @@ void main() {
       () async {
     await repository.createTodo(
       title: '预留发布窗口',
-      priority: TodoPriority.medium,
+      priority: TodoPriority.notUrgentImportant,
       dueToday: false,
     );
 
@@ -134,8 +134,8 @@ void main() {
 
   test('archiveTodo and deleteTodo write lifecycle records', () async {
     await repository.createTodo(
-      title: '归档后删除',
-      priority: TodoPriority.low,
+      title: '归档后删�?,
+      priority: TodoPriority.notUrgentNotImportant,
       dueToday: false,
     );
 
@@ -170,12 +170,12 @@ void main() {
 
     await workRepository.createTodo(
       title: '工作待办',
-      priority: TodoPriority.high,
+      priority: TodoPriority.urgentImportant,
       dueToday: true,
     );
     await personalRepository.createTodo(
       title: '生活待办',
-      priority: TodoPriority.low,
+      priority: TodoPriority.notUrgentNotImportant,
       dueToday: false,
     );
 
@@ -197,7 +197,7 @@ void main() {
 
     await repository.createTodo(
       title: '过期待办',
-      priority: TodoPriority.medium,
+      priority: TodoPriority.notUrgentImportant,
       dueToday: false,
     );
 
@@ -225,7 +225,7 @@ void main() {
   test('todo subtask supports CRUD and watch stream', () async {
     await repository.createTodo(
       title: '拆解发布计划',
-      priority: TodoPriority.high,
+      priority: TodoPriority.urgentImportant,
       dueToday: false,
     );
     final todo = (await database.select(database.todosTable).get()).single;
@@ -271,12 +271,12 @@ void main() {
 
     await workRepository.createTodo(
       title: '工作待办',
-      priority: TodoPriority.medium,
+      priority: TodoPriority.notUrgentImportant,
       dueToday: false,
     );
     await personalRepository.createTodo(
       title: '生活待办',
-      priority: TodoPriority.low,
+      priority: TodoPriority.notUrgentNotImportant,
       dueToday: false,
     );
 
@@ -286,11 +286,11 @@ void main() {
 
     await workRepository.createTodoSubtask(
       todoId: workTodo.id,
-      title: '工作子任务',
+      title: '工作子任�?,
     );
     await personalRepository.createTodoSubtask(
       todoId: personalTodo.id,
-      title: '生活子任务',
+      title: '生活子任�?,
     );
 
     final workSubtasks = await workRepository.watchTodoSubtasks(workTodo.id).first;
@@ -298,9 +298,9 @@ void main() {
         await personalRepository.watchTodoSubtasks(personalTodo.id).first;
 
     expect(workSubtasks, hasLength(1));
-    expect(workSubtasks.single.title, '工作子任务');
+    expect(workSubtasks.single.title, '工作子任�?);
     expect(personalSubtasks, hasLength(1));
-    expect(personalSubtasks.single.title, '生活子任务');
+    expect(personalSubtasks.single.title, '生活子任�?);
   });
 
   test('createTodoFromSchedule links schedule id and returns todo id', () async {
@@ -326,7 +326,7 @@ void main() {
 
     final todoId = await repository.createTodoFromSchedule(
       schedule: schedule,
-      priority: TodoPriority.high,
+      priority: TodoPriority.urgentImportant,
     );
 
     final todo = (await (database.select(database.todosTable)
@@ -337,7 +337,7 @@ void main() {
         await database.select(database.timelineEventsTable).get();
 
     expect(todo.convertedScheduleId, schedule.id);
-    expect(todo.priority, TodoPriority.high.value);
+    expect(todo.priority, TodoPriority.urgentImportant.value);
     expect(todo.description, contains('schedule description'));
     expect(todo.description, contains('Location: Room 401'));
     expect(todo.description, contains('Category: work'));

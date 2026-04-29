@@ -4,6 +4,7 @@ import 'package:baiju_app/core/database/app_database.dart';
 import 'package:baiju_app/core/database/daos/schedule_dao.dart';
 import 'package:baiju_app/core/notifications/reminder_scheduler.dart';
 import 'package:baiju_app/features/schedule/domain/schedule_filter.dart';
+import 'package:baiju_app/features/todo/domain/todo_filter.dart';
 import 'package:baiju_app/features/user/domain/user_models.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -41,6 +42,7 @@ class ScheduleRepository {
     String? category,
     bool isAllDay = false,
     String? sourceTodoId,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
   }) async {
     final nowUtc = DateTime.now().toUtc();
     final scheduleId = _uuid.v4();
@@ -83,6 +85,7 @@ class ScheduleRepository {
       timezone: Value(timezone),
       location: Value(normalizedLocation),
       category: Value(normalizedCategory),
+      priority: Value(priority.value),
       recurrenceRule: Value(recurrenceRule),
       reminderMinutesBefore: Value(reminder.minutes),
       sourceTodoId: Value(sourceTodoId),
@@ -106,6 +109,7 @@ class ScheduleRepository {
       category: normalizedCategory,
       color: null,
       status: 'planned',
+      priority: priority.value,
       recurrenceRule: recurrenceRule,
       reminderMinutesBefore: reminder.minutes,
       sourceTodoId: sourceTodoId,
@@ -138,6 +142,7 @@ class ScheduleRepository {
           'start_at': startAt.toIso8601String(),
           'end_at': endAt.toIso8601String(),
           'status': 'planned',
+          'priority': priority.value,
           'recurrence_rule': recurrenceRule,
           'reminder_minutes_before': reminder.minutes,
           'source_todo_id': sourceTodoId,
@@ -174,6 +179,7 @@ class ScheduleRepository {
     String? description,
     String? recurrenceRule,
     int? reminderMinutesBefore,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
   }) async {
     final nowUtc = DateTime.now().toUtc();
     final scheduleId = _uuid.v4();
@@ -191,6 +197,7 @@ class ScheduleRepository {
       location: Value(location),
       category: Value(category),
       description: Value(description),
+      priority: Value(priority.value),
       recurrenceRule: Value(recurrenceRule),
       reminderMinutesBefore: Value(reminderMinutesBefore),
       createdAt: Value(nowUtc),
@@ -213,6 +220,7 @@ class ScheduleRepository {
       category: category,
       color: null,
       status: 'planned',
+      priority: priority.value,
       recurrenceRule: recurrenceRule,
       reminderMinutesBefore: reminderMinutesBefore,
       sourceTodoId: null,
@@ -325,6 +333,7 @@ class ScheduleRepository {
     String? location,
     String? category,
     bool? isAllDay,
+    TodoPriority? priority,
   }) async {
     final nowUtc = DateTime.now().toUtc();
     final nextVersion = schedule.localVersion + 1;
@@ -337,6 +346,7 @@ class ScheduleRepository {
     final nextCategory =
         category == null ? schedule.category : _normalizeOptionalText(category);
     final nextIsAllDay = isAllDay ?? schedule.isAllDay;
+    final nextPriority = priority?.value ?? schedule.priority;
 
     await _database.transaction(() async {
       await _dao.updateSchedule(
@@ -348,6 +358,7 @@ class ScheduleRepository {
         isAllDay: nextIsAllDay,
         location: nextLocation,
         category: nextCategory,
+        priority: nextPriority,
         recurrenceRule: recurrenceRule,
         reminderMinutesBefore: reminder.minutes,
         updatedAt: nowUtc,
@@ -368,6 +379,7 @@ class ScheduleRepository {
           ),
           'start_at': startAt.toIso8601String(),
           'end_at': endAt.toIso8601String(),
+          'priority': nextPriority,
           'recurrence_rule': recurrenceRule,
           'reminder_minutes_before': reminder.minutes,
           'local_version': nextVersion,

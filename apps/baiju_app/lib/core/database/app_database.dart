@@ -37,7 +37,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -124,6 +124,16 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(
           usersTable,
           usersTable.passwordHash as GeneratedColumn<Object>,
+        );
+      }
+      if (from < 14) {
+        await m.addColumn(
+          goalsTable,
+          goalsTable.priority as GeneratedColumn<Object>,
+        );
+        await m.addColumn(
+          schedulesTable,
+          schedulesTable.priority as GeneratedColumn<Object>,
         );
       }
     },

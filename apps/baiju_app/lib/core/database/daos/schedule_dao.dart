@@ -83,6 +83,7 @@ class ScheduleDao {
     required int? reminderMinutesBefore,
     required DateTime updatedAt,
     required int localVersion,
+    String priority = 'not_urgent_important',
   }) {
     return (_database.update(_database.schedulesTable)
           ..where(
@@ -97,6 +98,7 @@ class ScheduleDao {
         isAllDay: Value(isAllDay),
         location: Value(location),
         category: Value(category),
+        priority: Value(priority),
         recurrenceRule: Value(recurrenceRule),
         reminderMinutesBefore: Value(reminderMinutesBefore),
         updatedAt: Value(updatedAt),

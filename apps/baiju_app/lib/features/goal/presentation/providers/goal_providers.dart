@@ -4,6 +4,7 @@ import 'package:baiju_app/core/database/database_provider.dart';
 import 'package:baiju_app/features/goal/domain/goal_models.dart';
 import 'package:baiju_app/features/goal/infrastructure/goal_repository.dart';
 import 'package:baiju_app/features/habit/domain/habit_models.dart';
+import 'package:baiju_app/features/todo/domain/todo_filter.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_providers.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -91,6 +92,7 @@ class GoalActions {
     required double habitUnitWeight,
     required double? progressTarget,
     required String? unit,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
   }) {
     return _repository.createGoal(
       title: title,
@@ -102,6 +104,7 @@ class GoalActions {
       habitUnitWeight: habitUnitWeight,
       progressTarget: progressTarget,
       unit: unit,
+      priority: priority,
     );
   }
 
@@ -118,6 +121,7 @@ class GoalActions {
     required double? progressValue,
     required double? progressTarget,
     required String? unit,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
   }) {
     return _repository.updateGoal(
       goal: goal,
@@ -132,6 +136,7 @@ class GoalActions {
       progressValue: progressValue,
       progressTarget: progressTarget,
       unit: unit,
+      priority: priority,
     );
   }
 

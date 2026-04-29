@@ -113,7 +113,7 @@ void main() {
 
     await todoRepository.createTodo(
       title: '整理晨间计划',
-      priority: TodoPriority.high,
+      priority: TodoPriority.urgentImportant,
       dueToday: true,
       goalId: goal.id,
     );

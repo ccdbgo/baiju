@@ -29,6 +29,7 @@ void main() {
       category: null,
       color: null,
       status: 'planned',
+      priority: 'not_urgent_important',
       recurrenceRule: null,
       reminderMinutesBefore: null,
       sourceTodoId: null,

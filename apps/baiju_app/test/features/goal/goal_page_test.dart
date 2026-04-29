@@ -20,6 +20,7 @@ void main() {
     todoUnitWeight: 1.0,
     habitUnitWeight: 0.5,
     status: GoalStatus.active.value,
+    priority: 'not_urgent_important',
     startDate: null,
     endDate: null,
     progressValue: 2,

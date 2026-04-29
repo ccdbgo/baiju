@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:baiju_app/core/database/app_database.dart';
 import 'package:baiju_app/core/database/daos/goal_dao.dart';
 import 'package:baiju_app/features/goal/domain/goal_models.dart';
+import 'package:baiju_app/features/todo/domain/todo_filter.dart';
 import 'package:baiju_app/features/user/domain/user_models.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -189,6 +190,7 @@ class GoalRepository {
     required double habitUnitWeight,
     required double? progressTarget,
     required String? unit,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
   }) async {
     final now = DateTime.now().toUtc();
     final goalId = _uuid.v4();
@@ -204,6 +206,7 @@ class GoalRepository {
       todoUnitWeight: Value(todoUnitWeight),
       habitUnitWeight: Value(habitUnitWeight),
       status: const Value('active'),
+      priority: Value(priority.value),
       progressValue: const Value(0.0),
       progressTarget: Value(progressTarget),
       unit: Value(unit),
@@ -228,6 +231,7 @@ class GoalRepository {
           'habit_weight': habitWeight,
           'todo_unit_weight': todoUnitWeight,
           'habit_unit_weight': habitUnitWeight,
+          'priority': priority.value,
           'progress_target': progressTarget,
           'unit': unit,
           'updated_at': now.toIso8601String(),
@@ -256,6 +260,7 @@ class GoalRepository {
     required double? progressValue,
     required double? progressTarget,
     required String? unit,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
   }) async {
     final now = DateTime.now().toUtc();
     final nextVersion = goal.localVersion + 1;
@@ -272,6 +277,7 @@ class GoalRepository {
         todoUnitWeight: todoUnitWeight,
         habitUnitWeight: habitUnitWeight,
         status: status.value,
+        priority: priority.value,
         startDate: goal.startDate,
         endDate: goal.endDate,
         progressValue: progressValue,
@@ -294,6 +300,7 @@ class GoalRepository {
           'todo_unit_weight': todoUnitWeight,
           'habit_unit_weight': habitUnitWeight,
           'status': status.value,
+          'priority': priority.value,
           'progress_value': progressValue,
           'progress_target': progressTarget,
           'unit': unit,

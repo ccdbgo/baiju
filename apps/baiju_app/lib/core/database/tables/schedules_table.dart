@@ -13,6 +13,8 @@ class SchedulesTable extends Table {
   TextColumn get category => text().nullable()();
   TextColumn get color => text().nullable()();
   TextColumn get status => text().withDefault(const Constant('planned'))();
+  TextColumn get priority =>
+      text().withDefault(const Constant('not_urgent_important'))();
   TextColumn get recurrenceRule => text().nullable()();
   IntColumn get reminderMinutesBefore => integer().nullable()();
   TextColumn get sourceTodoId => text().nullable()();

@@ -1309,6 +1309,18 @@ class $GoalsTableTable extends GoalsTable
     requiredDuringInsert: false,
     defaultValue: const Constant('active'),
   );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<String> priority = GeneratedColumn<String>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('not_urgent_important'),
+  );
   static const VerificationMeta _startDateMeta = const VerificationMeta(
     'startDate',
   );
@@ -1468,6 +1480,7 @@ class $GoalsTableTable extends GoalsTable
     todoUnitWeight,
     habitUnitWeight,
     status,
+    priority,
     startDate,
     endDate,
     progressValue,
@@ -1576,6 +1589,12 @@ class $GoalsTableTable extends GoalsTable
       context.handle(
         _statusMeta,
         status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
       );
     }
     if (data.containsKey('start_date')) {
@@ -1724,6 +1743,10 @@ class $GoalsTableTable extends GoalsTable
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}priority'],
+      )!,
       startDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}start_date'],
@@ -1797,6 +1820,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
   final double todoUnitWeight;
   final double habitUnitWeight;
   final String status;
+  final String priority;
   final DateTime? startDate;
   final DateTime? endDate;
   final double? progressValue;
@@ -1822,6 +1846,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     required this.todoUnitWeight,
     required this.habitUnitWeight,
     required this.status,
+    required this.priority,
     this.startDate,
     this.endDate,
     this.progressValue,
@@ -1852,6 +1877,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     map['todo_unit_weight'] = Variable<double>(todoUnitWeight);
     map['habit_unit_weight'] = Variable<double>(habitUnitWeight);
     map['status'] = Variable<String>(status);
+    map['priority'] = Variable<String>(priority);
     if (!nullToAbsent || startDate != null) {
       map['start_date'] = Variable<DateTime>(startDate);
     }
@@ -1899,6 +1925,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
       todoUnitWeight: Value(todoUnitWeight),
       habitUnitWeight: Value(habitUnitWeight),
       status: Value(status),
+      priority: Value(priority),
       startDate: startDate == null && nullToAbsent
           ? const Value.absent()
           : Value(startDate),
@@ -1946,6 +1973,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
       todoUnitWeight: serializer.fromJson<double>(json['todoUnitWeight']),
       habitUnitWeight: serializer.fromJson<double>(json['habitUnitWeight']),
       status: serializer.fromJson<String>(json['status']),
+      priority: serializer.fromJson<String>(json['priority']),
       startDate: serializer.fromJson<DateTime?>(json['startDate']),
       endDate: serializer.fromJson<DateTime?>(json['endDate']),
       progressValue: serializer.fromJson<double?>(json['progressValue']),
@@ -1976,6 +2004,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
       'todoUnitWeight': serializer.toJson<double>(todoUnitWeight),
       'habitUnitWeight': serializer.toJson<double>(habitUnitWeight),
       'status': serializer.toJson<String>(status),
+      'priority': serializer.toJson<String>(priority),
       'startDate': serializer.toJson<DateTime?>(startDate),
       'endDate': serializer.toJson<DateTime?>(endDate),
       'progressValue': serializer.toJson<double?>(progressValue),
@@ -2004,6 +2033,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     double? todoUnitWeight,
     double? habitUnitWeight,
     String? status,
+    String? priority,
     Value<DateTime?> startDate = const Value.absent(),
     Value<DateTime?> endDate = const Value.absent(),
     Value<double?> progressValue = const Value.absent(),
@@ -2029,6 +2059,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     todoUnitWeight: todoUnitWeight ?? this.todoUnitWeight,
     habitUnitWeight: habitUnitWeight ?? this.habitUnitWeight,
     status: status ?? this.status,
+    priority: priority ?? this.priority,
     startDate: startDate.present ? startDate.value : this.startDate,
     endDate: endDate.present ? endDate.value : this.endDate,
     progressValue: progressValue.present
@@ -2074,6 +2105,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
           ? data.habitUnitWeight.value
           : this.habitUnitWeight,
       status: data.status.present ? data.status.value : this.status,
+      priority: data.priority.present ? data.priority.value : this.priority,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       endDate: data.endDate.present ? data.endDate.value : this.endDate,
       progressValue: data.progressValue.present
@@ -2116,6 +2148,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
           ..write('todoUnitWeight: $todoUnitWeight, ')
           ..write('habitUnitWeight: $habitUnitWeight, ')
           ..write('status: $status, ')
+          ..write('priority: $priority, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('progressValue: $progressValue, ')
@@ -2146,6 +2179,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     todoUnitWeight,
     habitUnitWeight,
     status,
+    priority,
     startDate,
     endDate,
     progressValue,
@@ -2175,6 +2209,7 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
           other.todoUnitWeight == this.todoUnitWeight &&
           other.habitUnitWeight == this.habitUnitWeight &&
           other.status == this.status &&
+          other.priority == this.priority &&
           other.startDate == this.startDate &&
           other.endDate == this.endDate &&
           other.progressValue == this.progressValue &&
@@ -2202,6 +2237,7 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
   final Value<double> todoUnitWeight;
   final Value<double> habitUnitWeight;
   final Value<String> status;
+  final Value<String> priority;
   final Value<DateTime?> startDate;
   final Value<DateTime?> endDate;
   final Value<double?> progressValue;
@@ -2228,6 +2264,7 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     this.todoUnitWeight = const Value.absent(),
     this.habitUnitWeight = const Value.absent(),
     this.status = const Value.absent(),
+    this.priority = const Value.absent(),
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     this.progressValue = const Value.absent(),
@@ -2255,6 +2292,7 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     this.todoUnitWeight = const Value.absent(),
     this.habitUnitWeight = const Value.absent(),
     this.status = const Value.absent(),
+    this.priority = const Value.absent(),
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     this.progressValue = const Value.absent(),
@@ -2284,6 +2322,7 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     Expression<double>? todoUnitWeight,
     Expression<double>? habitUnitWeight,
     Expression<String>? status,
+    Expression<String>? priority,
     Expression<DateTime>? startDate,
     Expression<DateTime>? endDate,
     Expression<double>? progressValue,
@@ -2311,6 +2350,7 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
       if (todoUnitWeight != null) 'todo_unit_weight': todoUnitWeight,
       if (habitUnitWeight != null) 'habit_unit_weight': habitUnitWeight,
       if (status != null) 'status': status,
+      if (priority != null) 'priority': priority,
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
       if (progressValue != null) 'progress_value': progressValue,
@@ -2340,6 +2380,7 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     Value<double>? todoUnitWeight,
     Value<double>? habitUnitWeight,
     Value<String>? status,
+    Value<String>? priority,
     Value<DateTime?>? startDate,
     Value<DateTime?>? endDate,
     Value<double?>? progressValue,
@@ -2367,6 +2408,7 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
       todoUnitWeight: todoUnitWeight ?? this.todoUnitWeight,
       habitUnitWeight: habitUnitWeight ?? this.habitUnitWeight,
       status: status ?? this.status,
+      priority: priority ?? this.priority,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       progressValue: progressValue ?? this.progressValue,
@@ -2419,6 +2461,9 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<String>(priority.value);
     }
     if (startDate.present) {
       map['start_date'] = Variable<DateTime>(startDate.value);
@@ -2479,6 +2524,7 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
           ..write('todoUnitWeight: $todoUnitWeight, ')
           ..write('habitUnitWeight: $habitUnitWeight, ')
           ..write('status: $status, ')
+          ..write('priority: $priority, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('progressValue: $progressValue, ')
@@ -2629,6 +2675,18 @@ class $SchedulesTableTable extends SchedulesTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
     defaultValue: const Constant('planned'),
+  );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<String> priority = GeneratedColumn<String>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('not_urgent_important'),
   );
   static const VerificationMeta _recurrenceRuleMeta = const VerificationMeta(
     'recurrenceRule',
@@ -2791,6 +2849,7 @@ class $SchedulesTableTable extends SchedulesTable
     category,
     color,
     status,
+    priority,
     recurrenceRule,
     reminderMinutesBefore,
     sourceTodoId,
@@ -2897,6 +2956,12 @@ class $SchedulesTableTable extends SchedulesTable
       context.handle(
         _statusMeta,
         status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
       );
     }
     if (data.containsKey('recurrence_rule')) {
@@ -3058,6 +3123,10 @@ class $SchedulesTableTable extends SchedulesTable
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}priority'],
+      )!,
       recurrenceRule: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}recurrence_rule'],
@@ -3133,6 +3202,7 @@ class SchedulesTableData extends DataClass
   final String? category;
   final String? color;
   final String status;
+  final String priority;
   final String? recurrenceRule;
   final int? reminderMinutesBefore;
   final String? sourceTodoId;
@@ -3159,6 +3229,7 @@ class SchedulesTableData extends DataClass
     this.category,
     this.color,
     required this.status,
+    required this.priority,
     this.recurrenceRule,
     this.reminderMinutesBefore,
     this.sourceTodoId,
@@ -3196,6 +3267,7 @@ class SchedulesTableData extends DataClass
       map['color'] = Variable<String>(color);
     }
     map['status'] = Variable<String>(status);
+    map['priority'] = Variable<String>(priority);
     if (!nullToAbsent || recurrenceRule != null) {
       map['recurrence_rule'] = Variable<String>(recurrenceRule);
     }
@@ -3250,6 +3322,7 @@ class SchedulesTableData extends DataClass
           ? const Value.absent()
           : Value(color),
       status: Value(status),
+      priority: Value(priority),
       recurrenceRule: recurrenceRule == null && nullToAbsent
           ? const Value.absent()
           : Value(recurrenceRule),
@@ -3300,6 +3373,7 @@ class SchedulesTableData extends DataClass
       category: serializer.fromJson<String?>(json['category']),
       color: serializer.fromJson<String?>(json['color']),
       status: serializer.fromJson<String>(json['status']),
+      priority: serializer.fromJson<String>(json['priority']),
       recurrenceRule: serializer.fromJson<String?>(json['recurrenceRule']),
       reminderMinutesBefore: serializer.fromJson<int?>(
         json['reminderMinutesBefore'],
@@ -3333,6 +3407,7 @@ class SchedulesTableData extends DataClass
       'category': serializer.toJson<String?>(category),
       'color': serializer.toJson<String?>(color),
       'status': serializer.toJson<String>(status),
+      'priority': serializer.toJson<String>(priority),
       'recurrenceRule': serializer.toJson<String?>(recurrenceRule),
       'reminderMinutesBefore': serializer.toJson<int?>(reminderMinutesBefore),
       'sourceTodoId': serializer.toJson<String?>(sourceTodoId),
@@ -3362,6 +3437,7 @@ class SchedulesTableData extends DataClass
     Value<String?> category = const Value.absent(),
     Value<String?> color = const Value.absent(),
     String? status,
+    String? priority,
     Value<String?> recurrenceRule = const Value.absent(),
     Value<int?> reminderMinutesBefore = const Value.absent(),
     Value<String?> sourceTodoId = const Value.absent(),
@@ -3388,6 +3464,7 @@ class SchedulesTableData extends DataClass
     category: category.present ? category.value : this.category,
     color: color.present ? color.value : this.color,
     status: status ?? this.status,
+    priority: priority ?? this.priority,
     recurrenceRule: recurrenceRule.present
         ? recurrenceRule.value
         : this.recurrenceRule,
@@ -3424,6 +3501,7 @@ class SchedulesTableData extends DataClass
       category: data.category.present ? data.category.value : this.category,
       color: data.color.present ? data.color.value : this.color,
       status: data.status.present ? data.status.value : this.status,
+      priority: data.priority.present ? data.priority.value : this.priority,
       recurrenceRule: data.recurrenceRule.present
           ? data.recurrenceRule.value
           : this.recurrenceRule,
@@ -3473,6 +3551,7 @@ class SchedulesTableData extends DataClass
           ..write('category: $category, ')
           ..write('color: $color, ')
           ..write('status: $status, ')
+          ..write('priority: $priority, ')
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('reminderMinutesBefore: $reminderMinutesBefore, ')
           ..write('sourceTodoId: $sourceTodoId, ')
@@ -3504,6 +3583,7 @@ class SchedulesTableData extends DataClass
     category,
     color,
     status,
+    priority,
     recurrenceRule,
     reminderMinutesBefore,
     sourceTodoId,
@@ -3534,6 +3614,7 @@ class SchedulesTableData extends DataClass
           other.category == this.category &&
           other.color == this.color &&
           other.status == this.status &&
+          other.priority == this.priority &&
           other.recurrenceRule == this.recurrenceRule &&
           other.reminderMinutesBefore == this.reminderMinutesBefore &&
           other.sourceTodoId == this.sourceTodoId &&
@@ -3562,6 +3643,7 @@ class SchedulesTableCompanion extends UpdateCompanion<SchedulesTableData> {
   final Value<String?> category;
   final Value<String?> color;
   final Value<String> status;
+  final Value<String> priority;
   final Value<String?> recurrenceRule;
   final Value<int?> reminderMinutesBefore;
   final Value<String?> sourceTodoId;
@@ -3589,6 +3671,7 @@ class SchedulesTableCompanion extends UpdateCompanion<SchedulesTableData> {
     this.category = const Value.absent(),
     this.color = const Value.absent(),
     this.status = const Value.absent(),
+    this.priority = const Value.absent(),
     this.recurrenceRule = const Value.absent(),
     this.reminderMinutesBefore = const Value.absent(),
     this.sourceTodoId = const Value.absent(),
@@ -3617,6 +3700,7 @@ class SchedulesTableCompanion extends UpdateCompanion<SchedulesTableData> {
     this.category = const Value.absent(),
     this.color = const Value.absent(),
     this.status = const Value.absent(),
+    this.priority = const Value.absent(),
     this.recurrenceRule = const Value.absent(),
     this.reminderMinutesBefore = const Value.absent(),
     this.sourceTodoId = const Value.absent(),
@@ -3649,6 +3733,7 @@ class SchedulesTableCompanion extends UpdateCompanion<SchedulesTableData> {
     Expression<String>? category,
     Expression<String>? color,
     Expression<String>? status,
+    Expression<String>? priority,
     Expression<String>? recurrenceRule,
     Expression<int>? reminderMinutesBefore,
     Expression<String>? sourceTodoId,
@@ -3677,6 +3762,7 @@ class SchedulesTableCompanion extends UpdateCompanion<SchedulesTableData> {
       if (category != null) 'category': category,
       if (color != null) 'color': color,
       if (status != null) 'status': status,
+      if (priority != null) 'priority': priority,
       if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
       if (reminderMinutesBefore != null)
         'reminder_minutes_before': reminderMinutesBefore,
@@ -3708,6 +3794,7 @@ class SchedulesTableCompanion extends UpdateCompanion<SchedulesTableData> {
     Value<String?>? category,
     Value<String?>? color,
     Value<String>? status,
+    Value<String>? priority,
     Value<String?>? recurrenceRule,
     Value<int?>? reminderMinutesBefore,
     Value<String?>? sourceTodoId,
@@ -3736,6 +3823,7 @@ class SchedulesTableCompanion extends UpdateCompanion<SchedulesTableData> {
       category: category ?? this.category,
       color: color ?? this.color,
       status: status ?? this.status,
+      priority: priority ?? this.priority,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       reminderMinutesBefore:
           reminderMinutesBefore ?? this.reminderMinutesBefore,
@@ -3792,6 +3880,9 @@ class SchedulesTableCompanion extends UpdateCompanion<SchedulesTableData> {
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<String>(priority.value);
     }
     if (recurrenceRule.present) {
       map['recurrence_rule'] = Variable<String>(recurrenceRule.value);
@@ -3855,6 +3946,7 @@ class SchedulesTableCompanion extends UpdateCompanion<SchedulesTableData> {
           ..write('category: $category, ')
           ..write('color: $color, ')
           ..write('status: $status, ')
+          ..write('priority: $priority, ')
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('reminderMinutesBefore: $reminderMinutesBefore, ')
           ..write('sourceTodoId: $sourceTodoId, ')
@@ -11946,6 +12038,7 @@ typedef $$GoalsTableTableCreateCompanionBuilder =
       Value<double> todoUnitWeight,
       Value<double> habitUnitWeight,
       Value<String> status,
+      Value<String> priority,
       Value<DateTime?> startDate,
       Value<DateTime?> endDate,
       Value<double?> progressValue,
@@ -11974,6 +12067,7 @@ typedef $$GoalsTableTableUpdateCompanionBuilder =
       Value<double> todoUnitWeight,
       Value<double> habitUnitWeight,
       Value<String> status,
+      Value<String> priority,
       Value<DateTime?> startDate,
       Value<DateTime?> endDate,
       Value<double?> progressValue,
@@ -12051,6 +12145,11 @@ class $$GoalsTableTableFilterComposer
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get priority => $composableBuilder(
+    column: $table.priority,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12184,6 +12283,11 @@ class $$GoalsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get startDate => $composableBuilder(
     column: $table.startDate,
     builder: (column) => ColumnOrderings(column),
@@ -12304,6 +12408,9 @@ class $$GoalsTableTableAnnotationComposer
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
+  GeneratedColumn<String> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
   GeneratedColumn<DateTime> get startDate =>
       $composableBuilder(column: $table.startDate, builder: (column) => column);
 
@@ -12398,6 +12505,7 @@ class $$GoalsTableTableTableManager
                 Value<double> todoUnitWeight = const Value.absent(),
                 Value<double> habitUnitWeight = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<String> priority = const Value.absent(),
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> endDate = const Value.absent(),
                 Value<double?> progressValue = const Value.absent(),
@@ -12424,6 +12532,7 @@ class $$GoalsTableTableTableManager
                 todoUnitWeight: todoUnitWeight,
                 habitUnitWeight: habitUnitWeight,
                 status: status,
+                priority: priority,
                 startDate: startDate,
                 endDate: endDate,
                 progressValue: progressValue,
@@ -12452,6 +12561,7 @@ class $$GoalsTableTableTableManager
                 Value<double> todoUnitWeight = const Value.absent(),
                 Value<double> habitUnitWeight = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<String> priority = const Value.absent(),
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> endDate = const Value.absent(),
                 Value<double?> progressValue = const Value.absent(),
@@ -12478,6 +12588,7 @@ class $$GoalsTableTableTableManager
                 todoUnitWeight: todoUnitWeight,
                 habitUnitWeight: habitUnitWeight,
                 status: status,
+                priority: priority,
                 startDate: startDate,
                 endDate: endDate,
                 progressValue: progressValue,
@@ -12532,6 +12643,7 @@ typedef $$SchedulesTableTableCreateCompanionBuilder =
       Value<String?> category,
       Value<String?> color,
       Value<String> status,
+      Value<String> priority,
       Value<String?> recurrenceRule,
       Value<int?> reminderMinutesBefore,
       Value<String?> sourceTodoId,
@@ -12561,6 +12673,7 @@ typedef $$SchedulesTableTableUpdateCompanionBuilder =
       Value<String?> category,
       Value<String?> color,
       Value<String> status,
+      Value<String> priority,
       Value<String?> recurrenceRule,
       Value<int?> reminderMinutesBefore,
       Value<String?> sourceTodoId,
@@ -12643,6 +12756,11 @@ class $$SchedulesTableTableFilterComposer
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get priority => $composableBuilder(
+    column: $table.priority,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12781,6 +12899,11 @@ class $$SchedulesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get recurrenceRule => $composableBuilder(
     column: $table.recurrenceRule,
     builder: (column) => ColumnOrderings(column),
@@ -12894,6 +13017,9 @@ class $$SchedulesTableTableAnnotationComposer
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
+  GeneratedColumn<String> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
   GeneratedColumn<String> get recurrenceRule => $composableBuilder(
     column: $table.recurrenceRule,
     builder: (column) => column,
@@ -13001,6 +13127,7 @@ class $$SchedulesTableTableTableManager
                 Value<String?> category = const Value.absent(),
                 Value<String?> color = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<String> priority = const Value.absent(),
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<int?> reminderMinutesBefore = const Value.absent(),
                 Value<String?> sourceTodoId = const Value.absent(),
@@ -13028,6 +13155,7 @@ class $$SchedulesTableTableTableManager
                 category: category,
                 color: color,
                 status: status,
+                priority: priority,
                 recurrenceRule: recurrenceRule,
                 reminderMinutesBefore: reminderMinutesBefore,
                 sourceTodoId: sourceTodoId,
@@ -13057,6 +13185,7 @@ class $$SchedulesTableTableTableManager
                 Value<String?> category = const Value.absent(),
                 Value<String?> color = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<String> priority = const Value.absent(),
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<int?> reminderMinutesBefore = const Value.absent(),
                 Value<String?> sourceTodoId = const Value.absent(),
@@ -13084,6 +13213,7 @@ class $$SchedulesTableTableTableManager
                 category: category,
                 color: color,
                 status: status,
+                priority: priority,
                 recurrenceRule: recurrenceRule,
                 reminderMinutesBefore: reminderMinutesBefore,
                 sourceTodoId: sourceTodoId,

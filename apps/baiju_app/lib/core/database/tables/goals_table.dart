@@ -12,6 +12,8 @@ class GoalsTable extends Table {
   RealColumn get todoUnitWeight => real().withDefault(const Constant(1.0))();
   RealColumn get habitUnitWeight => real().withDefault(const Constant(0.5))();
   TextColumn get status => text().withDefault(const Constant('active'))();
+  TextColumn get priority =>
+      text().withDefault(const Constant('not_urgent_important'))();
   DateTimeColumn get startDate => dateTime().nullable()();
   DateTimeColumn get endDate => dateTime().nullable()();
   RealColumn get progressValue => real().nullable()();

@@ -53,6 +53,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
   double _todoWeight = 0.7;
   double _todoUnitWeight = 1.0;
   double _habitUnitWeight = 0.5;
+  TodoPriority _selectedPriority = TodoPriority.notUrgentImportant;
   bool _isCreating = false;
 
   GoalViewMode _selectedView = GoalViewMode.day;
@@ -152,6 +153,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             todoWeight: _todoWeight,
             todoUnitWeight: _todoUnitWeight,
             habitUnitWeight: _habitUnitWeight,
+            selectedPriority: _selectedPriority,
             isCreating: _isCreating,
             onTypeChanged: (value) => setState(() => _selectedType = value),
             onProgressModeChanged: (value) =>
@@ -161,6 +163,8 @@ class _GoalPageState extends ConsumerState<GoalPage> {
                 setState(() => _todoUnitWeight = value),
             onHabitUnitWeightChanged: (value) =>
                 setState(() => _habitUnitWeight = value),
+            onPriorityChanged: (value) =>
+                setState(() => _selectedPriority = value),
             onSubmit: _createGoal,
           ),
           const SizedBox(height: 16),
@@ -305,6 +309,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             unit: _unitController.text.trim().isEmpty
                 ? null
                 : _unitController.text.trim(),
+            priority: _selectedPriority,
           );
       if (mounted) {
         _titleController.clear();
@@ -316,6 +321,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
           _todoWeight = 0.7;
           _todoUnitWeight = 1.0;
           _habitUnitWeight = 0.5;
+          _selectedPriority = TodoPriority.notUrgentImportant;
         });
       }
     } catch (error) {
@@ -391,6 +397,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
     var selectedType = GoalType.fromValue(goal.goalType);
     var selectedStatus = GoalStatus.fromValue(goal.status);
     var selectedProgressMode = GoalProgressMode.fromValue(goal.progressMode);
+    var selectedPriority = TodoPriority.fromValue(goal.priority);
     var todoWeight = goal.todoWeight;
     var todoUnitWeight = goal.todoUnitWeight;
     var habitUnitWeight = goal.habitUnitWeight;
@@ -437,6 +444,14 @@ class _GoalPageState extends ConsumerState<GoalPage> {
                         labelBuilder: (item) => item.label,
                         onChanged: (value) =>
                             setModalState(() => selectedStatus = value),
+                      ),
+                      _EnumChoiceGroup<TodoPriority>(
+                        title: '优先级（四象限）',
+                        value: selectedPriority,
+                        values: TodoPriority.values,
+                        labelBuilder: (item) => item.label,
+                        onChanged: (value) =>
+                            setModalState(() => selectedPriority = value),
                       ),
                       _EnumChoiceGroup<GoalProgressMode>(
                         title: '进度规则',
@@ -548,6 +563,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             todoUnitWeight: todoUnitWeight,
             habitUnitWeight: habitUnitWeight,
             status: selectedStatus,
+            priority: selectedPriority,
             progressValue: double.tryParse(progressController.text.trim()),
             progressTarget: double.tryParse(targetController.text.trim()),
             unit: unitController.text.trim().isEmpty
@@ -1077,12 +1093,14 @@ class _GoalCreateCard extends StatelessWidget {
     required this.todoWeight,
     required this.todoUnitWeight,
     required this.habitUnitWeight,
+    required this.selectedPriority,
     required this.isCreating,
     required this.onTypeChanged,
     required this.onProgressModeChanged,
     required this.onTodoWeightChanged,
     required this.onTodoUnitWeightChanged,
     required this.onHabitUnitWeightChanged,
+    required this.onPriorityChanged,
     required this.onSubmit,
   });
 
@@ -1094,12 +1112,14 @@ class _GoalCreateCard extends StatelessWidget {
   final double todoWeight;
   final double todoUnitWeight;
   final double habitUnitWeight;
+  final TodoPriority selectedPriority;
   final bool isCreating;
   final ValueChanged<GoalType> onTypeChanged;
   final ValueChanged<GoalProgressMode> onProgressModeChanged;
   final ValueChanged<double> onTodoWeightChanged;
   final ValueChanged<double> onTodoUnitWeightChanged;
   final ValueChanged<double> onHabitUnitWeightChanged;
+  final ValueChanged<TodoPriority> onPriorityChanged;
   final Future<void> Function() onSubmit;
 
   @override
@@ -1127,6 +1147,13 @@ class _GoalCreateCard extends StatelessWidget {
               values: GoalType.values,
               labelBuilder: (item) => item.label,
               onChanged: onTypeChanged,
+            ),
+            _EnumChoiceGroup<TodoPriority>(
+              title: '优先级（四象限）',
+              value: selectedPriority,
+              values: TodoPriority.values,
+              labelBuilder: (item) => item.label,
+              onChanged: onPriorityChanged,
             ),
             _EnumChoiceGroup<GoalProgressMode>(
               title: '进度规则',
@@ -1305,6 +1332,7 @@ class _GoalOverviewCard extends StatelessWidget {
               children: <Widget>[
                 _GoalTag(label: GoalType.fromValue(goal.goalType).label),
                 _GoalTag(label: GoalStatus.fromValue(goal.status).label),
+                _PriorityTag(priority: TodoPriority.fromValue(goal.priority)),
                 _GoalTag(
                   label: GoalProgressMode.fromValue(goal.progressMode).label,
                 ),
@@ -1354,6 +1382,35 @@ class _GoalTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Chip(label: Text(label));
+  }
+}
+
+class _PriorityTag extends StatelessWidget {
+  const _PriorityTag({required this.priority});
+
+  final TodoPriority priority;
+
+  Color _color(BuildContext context) {
+    switch (priority) {
+      case TodoPriority.urgentImportant:
+        return const Color(0xFFD32F2F);
+      case TodoPriority.notUrgentImportant:
+        return const Color(0xFF1565C0);
+      case TodoPriority.urgentNotImportant:
+        return const Color(0xFFE65100);
+      case TodoPriority.notUrgentNotImportant:
+        return const Color(0xFF2E7D32);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _color(context);
+    return Chip(
+      label: Text(priority.label, style: TextStyle(color: color, fontSize: 12)),
+      side: BorderSide(color: color.withValues(alpha: 0.5)),
+      backgroundColor: color.withValues(alpha: 0.08),
+    );
   }
 }
 
