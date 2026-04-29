@@ -1,10 +1,11 @@
+import 'package:baiju_app/core/notifications/notification_providers.dart';
 import 'package:baiju_app/features/habit/domain/habit_models.dart';
 import 'package:baiju_app/features/schedule/domain/schedule_filter.dart';
 import 'package:baiju_app/features/todo/domain/todo_filter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class TodayOverviewCard extends StatelessWidget {
+class TodayOverviewCard extends ConsumerWidget {
   const TodayOverviewCard({
     required this.todoSummary,
     required this.scheduleSummary,
@@ -23,16 +24,29 @@ class TodayOverviewCard extends StatelessWidget {
   final AsyncValue<int> pendingReminderCount;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dueCount = ref.watch(dueReminderCountProvider);
+    final hasDue = dueCount.maybeWhen(data: (v) => v > 0, orElse: () => false);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              '顶部总览',
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              children: <Widget>[
+                Text(
+                  '总览',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                if (hasDue) ...<Widget>[
+                  const SizedBox(width: 8),
+                  _ReminderBadge(
+                    count: dueCount.maybeWhen(data: (v) => v, orElse: () => 0),
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 12),
             Row(
@@ -148,3 +162,35 @@ class _MetricBlock extends StatelessWidget {
     );
   }
 }
+
+class _ReminderBadge extends StatelessWidget {
+  const _ReminderBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.error,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const Text('🔔', style: TextStyle(fontSize: 12)),
+          const SizedBox(width: 4),
+          Text(
+            '$count 条提醒',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onError,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

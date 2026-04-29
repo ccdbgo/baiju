@@ -199,7 +199,7 @@ class AppNotificationService implements ReminderScheduler {
 
   @override
   Future<void> cancelAllManagedReminders() {
-    return _plugin.cancelAllPendingNotifications();
+    return _plugin.cancelAll();
   }
 
   @override

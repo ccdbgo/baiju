@@ -1,4 +1,5 @@
 import 'package:baiju_app/app/router/app_router.dart';
+import 'package:baiju_app/core/notifications/notification_providers.dart';
 import 'package:baiju_app/features/user/presentation/providers/auth_state_provider.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_providers.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,9 @@ class UserAvatarButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(activeUserProfileProvider);
+    final dueCount = ref.watch(dueReminderCountProvider);
+    final hasDue = dueCount.maybeWhen(data: (v) => v > 0, orElse: () => false);
+
     final displayName = profile.maybeWhen(
       data: (u) => u?.displayName ?? '?',
       orElse: () => '?',
@@ -20,9 +24,30 @@ class UserAvatarButton extends ConsumerWidget {
       onTap: () => _showProfileSheet(context, ref, displayName),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: CircleAvatar(
-          radius: 16,
-          child: Text(initial, style: const TextStyle(fontSize: 14)),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            CircleAvatar(
+              radius: 16,
+              child: Text(initial, style: const TextStyle(fontSize: 14)),
+            ),
+            if (hasDue)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.error,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Text('🔔', style: TextStyle(fontSize: 8)),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
