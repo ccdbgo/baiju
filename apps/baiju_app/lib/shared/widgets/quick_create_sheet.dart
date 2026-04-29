@@ -107,7 +107,7 @@ class _QuickCreateSheetState extends ConsumerState<_QuickCreateSheet> {
   final TextEditingController _unitController = TextEditingController();
 
   _QuickCreateType _selectedType = _QuickCreateType.todo;
-  TodoPriority _todoPriority = TodoPriority.medium;
+  TodoPriority _todoPriority = TodoPriority.notUrgentImportant;
   String? _todoGoalId;
   bool _todoDueToday = true;
 

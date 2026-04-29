@@ -126,7 +126,7 @@ class TodoRepository {
 
   Future<String> createTodoFromSchedule({
     required SchedulesTableData schedule,
-    TodoPriority priority = TodoPriority.medium,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
     DateTime? dueAt,
   }) async {
     final now = DateTime.now().toUtc();

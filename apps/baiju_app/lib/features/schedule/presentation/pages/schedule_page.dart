@@ -4,7 +4,6 @@ import 'package:baiju_app/features/schedule/presentation/providers/schedule_prov
 import 'package:baiju_app/features/schedule/presentation/widgets/schedule_calendar_views.dart';
 import 'package:baiju_app/features/user/domain/user_preferences.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_preferences_providers.dart';
-import 'package:baiju_app/features/user/presentation/providers/user_providers.dart';
 import 'package:baiju_app/shared/widgets/list_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,70 +39,28 @@ class SchedulePage extends ConsumerStatefulWidget {
 
 class _SchedulePageState extends ConsumerState<SchedulePage> {
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
-  final TextEditingController _categoryController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
   final Set<String> _pendingScheduleIds = <String>{};
 
-  ScheduleReminderOption _selectedReminder = ScheduleReminderOption.fifteen;
-  ScheduleRecurrenceRule _selectedRecurrence = ScheduleRecurrenceRule.none;
   ScheduleViewMode _selectedView = ScheduleViewMode.day;
   ScheduleSortOption _sortOption = ScheduleSortOption.startAsc;
   ScheduleAllDayFilterOption _allDayFilterOption =
       ScheduleAllDayFilterOption.all;
   DateTime _focusDate = DateTime.now();
   String? _selectedCategoryFilter;
-  bool _isAllDay = false;
-  bool _isCreating = false;
-  bool _defaultReminderHydrated = false;
-  String? _defaultReminderWorkspaceId;
-  // 快速创建：直接用 DateTime 而非枚举
-  DateTime _quickStartAt = DateTime.now().copyWith(
-    hour: 9, minute: 0, second: 0, millisecond: 0, microsecond: 0,
-  );
-  DateTime _quickEndAt = DateTime.now().copyWith(
-    hour: 10, minute: 0, second: 0, millisecond: 0, microsecond: 0,
-  );
 
   @override
   void dispose() {
     _searchController.dispose();
-    _titleController.dispose();
-    _locationController.dispose();
-    _categoryController.dispose();
-    _descriptionController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final workspace = ref.watch(currentUserWorkspaceProvider);
-    final preferences = ref.watch(userPreferencesProvider);
     final summary = ref.watch(scheduleSummaryProvider);
     final schedules = ref.watch(scheduleListProvider);
     final allSchedules = ref.watch(allScheduleListProvider);
     final selectedFilter = ref.watch(selectedScheduleFilterProvider);
     final theme = Theme.of(context);
-
-    preferences.whenData((value) {
-      final shouldHydrate =
-          !_defaultReminderHydrated ||
-          _defaultReminderWorkspaceId != workspace.workspaceId;
-      if (!shouldHydrate) {
-        return;
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _selectedReminder = value.defaultScheduleReminderOption;
-          _defaultReminderHydrated = true;
-          _defaultReminderWorkspaceId = workspace.workspaceId;
-        });
-      });
-    });
 
     return SafeArea(
       top: false,
@@ -118,41 +75,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           ),
           const SizedBox(height: 18),
           _ScheduleSummaryCard(summary: summary),
-          const SizedBox(height: 16),
-          _ScheduleWorkbenchCard(
-            summary: summary,
-            selectedView: _selectedView,
-            selectedFilter: selectedFilter,
-            focusDate: _focusDate,
-            onOpenToday: () => context.push('/today'),
-            onOpenTimeline: () => context.push('/timeline'),
-          ),
-          const SizedBox(height: 16),
-          _QuickCreateScheduleCard(
-            controller: _titleController,
-            locationController: _locationController,
-            categoryController: _categoryController,
-            descriptionController: _descriptionController,
-            isCreating: _isCreating,
-            isAllDay: _isAllDay,
-            startAt: _quickStartAt,
-            endAt: _quickEndAt,
-            selectedReminder: _selectedReminder,
-            selectedRecurrence: _selectedRecurrence,
-            onAllDayChanged: (value) => setState(() => _isAllDay = value),
-            onStartAtChanged: (value) => setState(() {
-              _quickStartAt = value;
-              if (!_quickEndAt.isAfter(_quickStartAt)) {
-                _quickEndAt = _quickStartAt.add(const Duration(hours: 1));
-              }
-            }),
-            onEndAtChanged: (value) => setState(() => _quickEndAt = value),
-            onReminderChanged: (value) =>
-                setState(() => _selectedReminder = value),
-            onRecurrenceChanged: (value) =>
-                setState(() => _selectedRecurrence = value),
-            onSubmit: _createSchedule,
-          ),
           const SizedBox(height: 16),
           SegmentedButton<ScheduleViewMode>(
             segments: ScheduleViewMode.values
@@ -199,14 +121,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                   _selectedView = ScheduleViewMode.month;
                 });
               },
-              onInlineCreate: (title, startAt, endAt, isAllDay) async {
-                await ref.read(scheduleActionsProvider).createScheduleAt(
-                  title: title,
-                  startAt: startAt,
-                  endAt: endAt,
-                  isAllDay: isAllDay,
-                );
-              },
+              onRequestCreate: (startAt, endAt, isAllDay) =>
+                  _openCreateScheduleSheet(
+                    startAt: startAt,
+                    endAt: endAt,
+                    isAllDay: isAllDay,
+                  ),
             ),
             loading: () => const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
@@ -383,66 +303,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         .toList()
       ..sort();
     return categories;
-  }
-
-  Future<void> _createSchedule() async {
-    final workspace = ref.read(currentUserWorkspaceProvider);
-    final title = _titleController.text.trim();
-    if (title.isEmpty || _isCreating) {
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-    setState(() => _isCreating = true);
-
-    try {
-      final startAt = _isAllDay
-          ? DateTime(_quickStartAt.year, _quickStartAt.month, _quickStartAt.day).toUtc()
-          : _quickStartAt.toUtc();
-      final endAt = _isAllDay
-          ? DateTime(_quickStartAt.year, _quickStartAt.month, _quickStartAt.day + 1).toUtc()
-          : (_quickEndAt.isAfter(_quickStartAt) ? _quickEndAt.toUtc() : _quickStartAt.add(const Duration(hours: 1)).toUtc());
-
-      await ref.read(scheduleActionsProvider).createScheduleAt(
-        title: title,
-        startAt: startAt,
-        endAt: endAt,
-        isAllDay: _isAllDay,
-      );
-
-      _titleController.clear();
-      _locationController.clear();
-      _categoryController.clear();
-      _descriptionController.clear();
-      final now = DateTime.now();
-      final defaultPreferences = ref
-          .read(userPreferencesProvider)
-          .maybeWhen(
-            data: (value) => value,
-            orElse: () => const UserPreferences(),
-          );
-      if (mounted) {
-        setState(() {
-          _quickStartAt = now.copyWith(hour: 9, minute: 0, second: 0, millisecond: 0, microsecond: 0);
-          _quickEndAt = now.copyWith(hour: 10, minute: 0, second: 0, millisecond: 0, microsecond: 0);
-          _selectedReminder = defaultPreferences.defaultScheduleReminderOption;
-          _selectedRecurrence = ScheduleRecurrenceRule.none;
-          _isAllDay = false;
-          _defaultReminderHydrated = true;
-          _defaultReminderWorkspaceId = workspace.workspaceId;
-        });
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('新增日程失败：$error')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isCreating = false);
-      }
-    }
   }
 
   Future<void> _toggleSchedule(
@@ -752,6 +612,286 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       };
     });
   }
+
+  Future<void> _openCreateScheduleSheet({
+    required DateTime startAt,
+    required DateTime endAt,
+    required bool isAllDay,
+  }) async {
+    final titleController = TextEditingController();
+    final locationController = TextEditingController();
+    final categoryController = TextEditingController();
+    final descriptionController = TextEditingController();
+    var selectedStartAt = startAt.toLocal();
+    var selectedEndAt = endAt.toLocal();
+    var selectedIsAllDay = isAllDay;
+    final defaultPreferences = ref
+        .read(userPreferencesProvider)
+        .maybeWhen(
+          data: (value) => value,
+          orElse: () => const UserPreferences(),
+        );
+    var selectedReminder = defaultPreferences.defaultScheduleReminderOption;
+    var selectedRecurrence = ScheduleRecurrenceRule.none;
+
+    try {
+      final confirmed = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              Future<void> pickDateTime({required bool isStart}) async {
+                final current =
+                    isStart ? selectedStartAt : selectedEndAt;
+                final date = await showDatePicker(
+                  context: context,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2035),
+                  initialDate: current,
+                );
+                if (date == null || !context.mounted) return;
+                final time = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(current),
+                );
+                if (time == null) return;
+                final picked = DateTime(
+                  date.year,
+                  date.month,
+                  date.day,
+                  time.hour,
+                  time.minute,
+                );
+                setModalState(() {
+                  if (isStart) {
+                    selectedStartAt = picked;
+                    if (!selectedEndAt.isAfter(selectedStartAt)) {
+                      selectedEndAt =
+                          selectedStartAt.add(const Duration(hours: 1));
+                    }
+                  } else {
+                    selectedEndAt = picked;
+                  }
+                });
+              }
+
+              return SafeArea(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    8,
+                    20,
+                    20 + MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        '新增日程',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: titleController,
+                        autofocus: true,
+                        decoration: const InputDecoration(
+                          labelText: '标题',
+                          hintText: '输入日程标题，例如：产品评审会',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SwitchListTile.adaptive(
+                        value: selectedIsAllDay,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('全天'),
+                        subtitle: const Text('全天日程不显示具体时段'),
+                        onChanged: (value) =>
+                            setModalState(() => selectedIsAllDay = value),
+                      ),
+                      const SizedBox(height: 6),
+                      if (!selectedIsAllDay) ...<Widget>[
+                        OutlinedButton.icon(
+                          onPressed: () => pickDateTime(isStart: true),
+                          icon: const Icon(Icons.schedule, size: 16),
+                          label: Text(
+                            '开始：${DateFormat('M月d日 HH:mm').format(selectedStartAt)}',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => pickDateTime(isStart: false),
+                          icon: const Icon(Icons.schedule_outlined, size: 16),
+                          label: Text(
+                            '结束：${DateFormat('M月d日 HH:mm').format(selectedEndAt)}',
+                          ),
+                        ),
+                      ] else
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2035),
+                              initialDate: selectedStartAt,
+                            );
+                            if (picked != null) {
+                              setModalState(
+                                () => selectedStartAt = DateTime(
+                                  picked.year,
+                                  picked.month,
+                                  picked.day,
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_month_outlined),
+                          label: Text(
+                            DateFormat('M月d日').format(selectedStartAt),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: locationController,
+                        decoration: const InputDecoration(
+                          labelText: '地点',
+                          hintText: '例如：会议室 A / 线上会议',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: categoryController,
+                        decoration: const InputDecoration(
+                          labelText: '分类',
+                          hintText: '例如：工作、学习、生活',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: descriptionController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: '描述（可选）',
+                          hintText: '补充这条安排的背景或注意事项',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '重复规则',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children:
+                            ScheduleRecurrenceRule.presets.map((option) {
+                          return ChoiceChip(
+                            label: Text(option.label),
+                            selected: option == selectedRecurrence,
+                            onSelected: (_) => setModalState(
+                              () => selectedRecurrence = option,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '提醒时间',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children:
+                            ScheduleReminderOption.values.map((option) {
+                          return ChoiceChip(
+                            label: Text(option.label),
+                            selected: option == selectedReminder,
+                            onSelected: (_) => setModalState(
+                              () => selectedReminder = option,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('新增日程'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+
+      if (confirmed != true || !mounted) return;
+
+      final title = titleController.text.trim();
+      if (title.isEmpty) return;
+
+      final localStart = selectedIsAllDay
+          ? DateTime(
+              selectedStartAt.year,
+              selectedStartAt.month,
+              selectedStartAt.day,
+            )
+          : selectedStartAt;
+      final localEnd = selectedIsAllDay
+          ? localStart.add(const Duration(days: 1))
+          : (selectedEndAt.isAfter(selectedStartAt)
+              ? selectedEndAt
+              : selectedStartAt.add(const Duration(hours: 1)));
+
+      await ref.read(scheduleActionsProvider).createScheduleAt(
+        title: title,
+        startAt: localStart.toUtc(),
+        endAt: localEnd.toUtc(),
+        isAllDay: selectedIsAllDay,
+        location: locationController.text.trim().isEmpty
+            ? null
+            : locationController.text.trim(),
+        category: categoryController.text.trim().isEmpty
+            ? null
+            : categoryController.text.trim(),
+        description: descriptionController.text.trim().isEmpty
+            ? null
+            : descriptionController.text.trim(),
+        recurrenceRule: selectedRecurrence.rule,
+        reminderMinutesBefore: selectedReminder.minutes,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('日程已新增')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('新增日程失败：$error')));
+      }
+    } finally {
+      titleController.dispose();
+      locationController.dispose();
+      categoryController.dispose();
+      descriptionController.dispose();
+    }
+  }
 }
 
 class _ScheduleSummaryCard extends StatelessWidget {
@@ -808,105 +948,6 @@ class _ScheduleSummaryCard extends StatelessWidget {
   }
 }
 
-class _ScheduleWorkbenchCard extends StatelessWidget {
-  const _ScheduleWorkbenchCard({
-    required this.summary,
-    required this.selectedView,
-    required this.selectedFilter,
-    required this.focusDate,
-    required this.onOpenToday,
-    required this.onOpenTimeline,
-  });
-
-  final AsyncValue<ScheduleSummary> summary;
-  final ScheduleViewMode selectedView;
-  final ScheduleFilter selectedFilter;
-  final DateTime focusDate;
-  final VoidCallback onOpenToday;
-  final VoidCallback onOpenTimeline;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFFF5F0E5),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        '日程工作台',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '把当前视图、日期焦点和时间线入口直接提到主页，方便快速切换。',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: onOpenToday,
-                  icon: const Icon(Icons.today_outlined),
-                  label: const Text('今日页'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            summary.when(
-              data: (value) => Row(
-                children: <Widget>[
-                  Expanded(
-                    child: _ScheduleMetric(
-                      label: '今天',
-                      value: '${value.today}',
-                      color: const Color(0xFF136F63),
-                    ),
-                  ),
-                  Expanded(
-                    child: _ScheduleMetric(
-                      label: '即将到来',
-                      value: '${value.upcoming}',
-                      color: const Color(0xFFC06C00),
-                    ),
-                  ),
-                  Expanded(
-                    child: _ScheduleMetric(
-                      label: '已完成',
-                      value: '${value.completed}',
-                      color: const Color(0xFF607D8B),
-                    ),
-                  ),
-                ],
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stackTrace) => Text('统计加载失败：$error'),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                Chip(label: Text('视图：${selectedView.label}')),
-                Chip(label: Text('筛选：${selectedFilter.label}')),
-                Chip(label: Text('焦点：${DateFormat('M月d日').format(focusDate)}')),
-                ActionChip(label: const Text('时间线'), onPressed: onOpenTimeline),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ScheduleMetric extends StatelessWidget {
   const _ScheduleMetric({
     required this.label,
@@ -934,235 +975,6 @@ class _ScheduleMetric extends StatelessWidget {
         Text(label),
       ],
     );
-  }
-}
-
-class _QuickCreateScheduleCard extends StatelessWidget {
-  const _QuickCreateScheduleCard({
-    required this.controller,
-    required this.locationController,
-    required this.categoryController,
-    required this.descriptionController,
-    required this.isCreating,
-    required this.isAllDay,
-    required this.startAt,
-    required this.endAt,
-    required this.selectedReminder,
-    required this.selectedRecurrence,
-    required this.onAllDayChanged,
-    required this.onStartAtChanged,
-    required this.onEndAtChanged,
-    required this.onReminderChanged,
-    required this.onRecurrenceChanged,
-    required this.onSubmit,
-  });
-
-  final TextEditingController controller;
-  final TextEditingController locationController;
-  final TextEditingController categoryController;
-  final TextEditingController descriptionController;
-  final bool isCreating;
-  final bool isAllDay;
-  final DateTime startAt;
-  final DateTime endAt;
-  final ScheduleReminderOption selectedReminder;
-  final ScheduleRecurrenceRule selectedRecurrence;
-  final ValueChanged<bool> onAllDayChanged;
-  final ValueChanged<DateTime> onStartAtChanged;
-  final ValueChanged<DateTime> onEndAtChanged;
-  final ValueChanged<ScheduleReminderOption> onReminderChanged;
-  final ValueChanged<ScheduleRecurrenceRule> onRecurrenceChanged;
-  final Future<void> Function() onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('快速新增日程', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              enabled: !isCreating,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => onSubmit(),
-              decoration: const InputDecoration(
-                hintText: '输入日程标题，例如：产品评审会',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SwitchListTile.adaptive(
-              key: const ValueKey('schedule-quick-is-all-day-switch'),
-              value: isAllDay,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('全天'),
-              subtitle: const Text('全天安排不需要具体时段'),
-              onChanged: isCreating ? null : onAllDayChanged,
-            ),
-            const SizedBox(height: 8),
-            // 起止时间选择
-            if (!isAllDay) ...<Widget>[
-              _ScheduleDateTimePicker(
-                label: '开始时间',
-                value: startAt,
-                enabled: !isCreating,
-                onChanged: onStartAtChanged,
-              ),
-              const SizedBox(height: 8),
-              _ScheduleDateTimePicker(
-                label: '结束时间',
-                value: endAt,
-                enabled: !isCreating,
-                onChanged: onEndAtChanged,
-              ),
-              const SizedBox(height: 12),
-            ] else ...<Widget>[
-              _ScheduleDateTimePicker(
-                label: '日期',
-                value: startAt,
-                enabled: !isCreating,
-                dateOnly: true,
-                onChanged: onStartAtChanged,
-              ),
-              const SizedBox(height: 12),
-            ],
-            TextField(
-              key: const ValueKey('schedule-quick-location-field'),
-              controller: locationController,
-              enabled: !isCreating,
-              decoration: const InputDecoration(
-                labelText: '地点',
-                hintText: '例如：会议室 A / 线上会议',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              key: const ValueKey('schedule-quick-category-field'),
-              controller: categoryController,
-              enabled: !isCreating,
-              decoration: const InputDecoration(
-                labelText: '分类',
-                hintText: '例如：工作、学习、生活',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              key: const ValueKey('schedule-quick-description-field'),
-              controller: descriptionController,
-              enabled: !isCreating,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: '描述（可选）',
-                hintText: '补充背景、目标或会议上下文',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text('重复规则', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: ScheduleRecurrenceRule.presets.map((option) {
-                return ChoiceChip(
-                  label: Text(option.label),
-                  selected: option == selectedRecurrence,
-                  onSelected: isCreating
-                      ? null
-                      : (_) => onRecurrenceChanged(option),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-            Text('提醒时间', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: ScheduleReminderOption.values.map((option) {
-                return ChoiceChip(
-                  label: Text(option.label),
-                  selected: option == selectedReminder,
-                  onSelected: isCreating
-                      ? null
-                      : (_) => onReminderChanged(option),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: isCreating ? null : onSubmit,
-                icon: isCreating
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add),
-                label: Text(isCreating ? '保存中' : '新增日程'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ScheduleDateTimePicker extends StatelessWidget {
-  const _ScheduleDateTimePicker({
-    required this.label,
-    required this.value,
-    required this.enabled,
-    required this.onChanged,
-    this.dateOnly = false,
-  });
-
-  final String label;
-  final DateTime value;
-  final bool enabled;
-  final ValueChanged<DateTime> onChanged;
-  final bool dateOnly;
-
-  @override
-  Widget build(BuildContext context) {
-    final displayText = dateOnly
-        ? DateFormat('yyyy年M月d日').format(value)
-        : DateFormat('M月d日 HH:mm').format(value);
-
-    return OutlinedButton.icon(
-      onPressed: enabled ? () => _pick(context) : null,
-      icon: Icon(dateOnly ? Icons.calendar_month_outlined : Icons.schedule, size: 16),
-      label: Text('$label：$displayText'),
-    );
-  }
-
-  Future<void> _pick(BuildContext context) async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: value,
-      firstDate: DateTime(DateTime.now().year - 1),
-      lastDate: DateTime(DateTime.now().year + 5),
-    );
-    if (date == null || !context.mounted) return;
-    if (dateOnly) {
-      onChanged(DateTime(date.year, date.month, date.day, value.hour, value.minute));
-      return;
-    }
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(value),
-    );
-    if (time == null) return;
-    onChanged(DateTime(date.year, date.month, date.day, time.hour, time.minute));
   }
 }
 

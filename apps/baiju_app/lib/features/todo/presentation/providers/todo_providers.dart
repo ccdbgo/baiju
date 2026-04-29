@@ -201,7 +201,7 @@ class TodoActions {
 
   Future<String> createTodoFromSchedule({
     required SchedulesTableData schedule,
-    TodoPriority priority = TodoPriority.medium,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
     DateTime? dueAt,
   }) {
     return _repository.createTodoFromSchedule(

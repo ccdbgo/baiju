@@ -124,36 +124,16 @@ void main() {
     expect(scheduleBEditButton, findsNothing);
   });
 
-  testWidgets('schedule page exposes workbench and sort controls', (
+  testWidgets('schedule page does not show workbench or quick-create card', (
     tester,
   ) async {
     await pumpPage(tester);
 
-    expect(find.text('日程工作台'), findsOneWidget);
-    expect(find.text('今日页'), findsOneWidget);
-    expect(find.text('时间线'), findsOneWidget);
-  });
-
-  testWidgets('schedule page shows extended quick-create fields', (
-    tester,
-  ) async {
-    await pumpPage(tester);
-
+    expect(find.text('日程工作台'), findsNothing);
+    expect(find.text('快速新增日程'), findsNothing);
     expect(
       find.byKey(const ValueKey('schedule-quick-is-all-day-switch')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('schedule-quick-location-field')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('schedule-quick-category-field')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('schedule-quick-description-field')),
-      findsOneWidget,
+      findsNothing,
     );
   });
 

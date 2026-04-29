@@ -62,16 +62,6 @@ class _NotePageState extends ConsumerState<NotePage> {
           const SizedBox(height: 18),
           _NoteSummaryCard(summary: summary),
           const SizedBox(height: 16),
-          _NoteWorkbenchCard(
-            summary: summary,
-            selectedFilter: selectedFilter,
-            showOnlyRelated: _showOnlyRelated,
-            searchQuery: _searchController.text.trim(),
-            onOpenJournal: () => context.push('/note/journal'),
-            onToggleRelatedOnly: () =>
-                setState(() => _showOnlyRelated = !_showOnlyRelated),
-          ),
-          const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
             child: OutlinedButton.icon(
@@ -313,109 +303,6 @@ class _NoteMetric extends StatelessWidget {
         const SizedBox(height: 6),
         Text(label),
       ],
-    );
-  }
-}
-
-class _NoteWorkbenchCard extends StatelessWidget {
-  const _NoteWorkbenchCard({
-    required this.summary,
-    required this.selectedFilter,
-    required this.showOnlyRelated,
-    required this.searchQuery,
-    required this.onOpenJournal,
-    required this.onToggleRelatedOnly,
-  });
-
-  final AsyncValue<NoteSummary> summary;
-  final NoteFilter selectedFilter;
-  final bool showOnlyRelated;
-  final String searchQuery;
-  final VoidCallback onOpenJournal;
-  final VoidCallback onToggleRelatedOnly;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFFF5F0E5),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        '笔记工作台',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '把日记入口、关联筛选和当前过滤状态直接提到主页，方便快速回看与切换。',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: onOpenJournal,
-                  icon: const Icon(Icons.auto_stories_outlined),
-                  label: const Text('日记时间轴'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            summary.when(
-              data: (value) => Row(
-                children: <Widget>[
-                  Expanded(
-                    child: _NoteMetric(
-                      label: '总数',
-                      value: '${value.total}',
-                      color: const Color(0xFF114B45),
-                    ),
-                  ),
-                  Expanded(
-                    child: _NoteMetric(
-                      label: '收藏',
-                      value: '${value.favorites}',
-                      color: const Color(0xFFC06C00),
-                    ),
-                  ),
-                  Expanded(
-                    child: _NoteMetric(
-                      label: '日记',
-                      value: '${value.diaryCount}',
-                      color: const Color(0xFF5D7A5D),
-                    ),
-                  ),
-                ],
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stackTrace) => Text('统计加载失败：$error'),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                Chip(label: Text('类型：${selectedFilter.label}')),
-                if (showOnlyRelated) const Chip(label: Text('仅看有关联对象')),
-                if (searchQuery.isNotEmpty)
-                  Chip(label: Text('关键词：$searchQuery')),
-                ActionChip(
-                  label: Text(showOnlyRelated ? '显示全部笔记' : '只看关联笔记'),
-                  onPressed: onToggleRelatedOnly,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

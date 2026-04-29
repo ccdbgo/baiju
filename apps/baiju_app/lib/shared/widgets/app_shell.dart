@@ -24,28 +24,16 @@ class AppShell extends StatelessWidget {
       branchIndex: 1,
     ),
     _ShellItem(
-      label: '待办',
-      icon: Icons.checklist_outlined,
-      selectedIcon: Icons.checklist,
-      branchIndex: 2,
-    ),
-    _ShellItem(
-      label: '习惯',
-      icon: Icons.bolt_outlined,
-      selectedIcon: Icons.bolt,
-      branchIndex: 3,
-    ),
-    _ShellItem(
-      label: '纪念日',
-      icon: Icons.celebration_outlined,
-      selectedIcon: Icons.celebration,
-      branchIndex: 4,
-    ),
-    _ShellItem(
       label: '目标',
       icon: Icons.flag_outlined,
       selectedIcon: Icons.flag,
       branchIndex: 5,
+    ),
+    _ShellItem(
+      label: '待办',
+      icon: Icons.checklist_outlined,
+      selectedIcon: Icons.checklist,
+      branchIndex: 2,
     ),
     _ShellItem(
       label: '笔记',
@@ -54,16 +42,28 @@ class AppShell extends StatelessWidget {
       branchIndex: 6,
     ),
     _ShellItem(
-      label: '时间线',
-      icon: Icons.insights_outlined,
-      selectedIcon: Icons.insights,
-      branchIndex: 7,
+      label: '纪念日',
+      icon: Icons.celebration_outlined,
+      selectedIcon: Icons.celebration,
+      branchIndex: 4,
+    ),
+    _ShellItem(
+      label: '习惯',
+      icon: Icons.bolt_outlined,
+      selectedIcon: Icons.bolt,
+      branchIndex: 3,
     ),
     _ShellItem(
       label: '天气',
       icon: Icons.wb_sunny_outlined,
       selectedIcon: Icons.wb_sunny,
       branchIndex: 8,
+    ),
+    _ShellItem(
+      label: '时间线',
+      icon: Icons.insights_outlined,
+      selectedIcon: Icons.insights,
+      branchIndex: 7,
     ),
     _ShellItem(
       label: '设置',
@@ -87,16 +87,16 @@ class AppShell extends StatelessWidget {
       branchIndex: 1,
     ),
     _ShellItem(
+      label: '目标',
+      icon: Icons.flag_outlined,
+      selectedIcon: Icons.flag,
+      branchIndex: 5,
+    ),
+    _ShellItem(
       label: '待办',
       icon: Icons.checklist_outlined,
       selectedIcon: Icons.checklist,
       branchIndex: 2,
-    ),
-    _ShellItem(
-      label: '时间线',
-      icon: Icons.insights_outlined,
-      selectedIcon: Icons.insights,
-      branchIndex: 7,
     ),
     _ShellItem(
       label: '更多',
@@ -113,7 +113,15 @@ class AppShell extends StatelessWidget {
     if (isCompact) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(_items[navigationShell.currentIndex].label),
+          title: Text(
+            _items
+                .firstWhere(
+                  (item) =>
+                      item.branchIndex == navigationShell.currentIndex,
+                  orElse: () => _items.first,
+                )
+                .label,
+          ),
           actions: <Widget>[
             IconButton(
               onPressed: () => _openFeatureNavigator(context),
@@ -171,7 +179,10 @@ class AppShell extends StatelessWidget {
                   ),
                   Expanded(
                     child: NavigationRail(
-                      selectedIndex: navigationShell.currentIndex,
+                      selectedIndex: _items.indexWhere(
+                        (item) =>
+                            item.branchIndex == navigationShell.currentIndex,
+                      ),
                       labelType: NavigationRailLabelType.all,
                       destinations: _items
                           .map(
@@ -182,7 +193,8 @@ class AppShell extends StatelessWidget {
                             ),
                           )
                           .toList(),
-                      onDestinationSelected: _onTap,
+                      onDestinationSelected: (index) =>
+                          _onTap(_items[index].branchIndex!),
                     ),
                   ),
                 ],
@@ -197,7 +209,14 @@ class AppShell extends StatelessWidget {
                       children: <Widget>[
                         Expanded(
                           child: Text(
-                            _items[navigationShell.currentIndex].label,
+                            _items
+                                .firstWhere(
+                                  (item) =>
+                                      item.branchIndex ==
+                                      navigationShell.currentIndex,
+                                  orElse: () => _items.first,
+                                )
+                                .label,
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
                         ),
@@ -230,18 +249,10 @@ class AppShell extends StatelessWidget {
   }
 
   int get _compactSelectedIndex {
-    switch (navigationShell.currentIndex) {
-      case 0:
-        return 0;
-      case 1:
-        return 1;
-      case 2:
-        return 2;
-      case 7:
-        return 3;
-      default:
-        return 4;
-    }
+    final idx = _compactPrimaryItems.indexWhere(
+      (item) => item.branchIndex == navigationShell.currentIndex,
+    );
+    return idx == -1 ? _compactPrimaryItems.length - 1 : idx;
   }
 
   void _onCompactTap(BuildContext context, int index) {

@@ -67,7 +67,7 @@ class ScheduleViewCard extends StatelessWidget {
     required this.onOpenScheduleDetail,
     required this.onSelectDate,
     required this.onSelectMonth,
-    required this.onInlineCreate,
+    required this.onRequestCreate,
     super.key,
   });
 
@@ -79,8 +79,8 @@ class ScheduleViewCard extends StatelessWidget {
   final ValueChanged<SchedulesTableData> onOpenScheduleDetail;
   final ValueChanged<DateTime> onSelectDate;
   final ValueChanged<DateTime> onSelectMonth;
-  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
-      onInlineCreate;
+  final void Function(DateTime startAt, DateTime endAt, bool isAllDay)
+      onRequestCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -91,26 +91,26 @@ class ScheduleViewCard extends StatelessWidget {
         pendingScheduleIds: pendingScheduleIds,
         onToggleSchedule: onToggleSchedule,
         onOpenScheduleDetail: onOpenScheduleDetail,
-        onInlineCreate: onInlineCreate,
+        onRequestCreate: onRequestCreate,
       ),
       ScheduleViewMode.week => WeekScheduleView(
         focusDate: focusDate,
         schedules: schedules,
         onOpenScheduleDetail: onOpenScheduleDetail,
-        onInlineCreate: onInlineCreate,
+        onRequestCreate: onRequestCreate,
       ),
       ScheduleViewMode.month => MonthScheduleView(
         focusDate: focusDate,
         schedules: schedules,
         onOpenScheduleDetail: onOpenScheduleDetail,
         onSelectDate: onSelectDate,
-        onInlineCreate: onInlineCreate,
+        onRequestCreate: onRequestCreate,
       ),
       ScheduleViewMode.year => YearScheduleView(
         focusDate: focusDate,
         schedules: schedules,
         onSelectMonth: onSelectMonth,
-        onInlineCreate: onInlineCreate,
+        onRequestCreate: onRequestCreate,
       ),
     };
 
@@ -120,14 +120,14 @@ class ScheduleViewCard extends StatelessWidget {
   }
 }
 
-class DayScheduleView extends StatefulWidget {
+class DayScheduleView extends StatelessWidget {
   const DayScheduleView({
     required this.focusDate,
     required this.schedules,
     required this.pendingScheduleIds,
     required this.onToggleSchedule,
     required this.onOpenScheduleDetail,
-    required this.onInlineCreate,
+    required this.onRequestCreate,
     super.key,
   });
 
@@ -136,30 +136,21 @@ class DayScheduleView extends StatefulWidget {
   final Set<String> pendingScheduleIds;
   final Future<void> Function(SchedulesTableData, bool) onToggleSchedule;
   final ValueChanged<SchedulesTableData> onOpenScheduleDetail;
-  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
-      onInlineCreate;
-
-  @override
-  State<DayScheduleView> createState() => _DayScheduleViewState();
-}
-
-class _DayScheduleViewState extends State<DayScheduleView> {
-  int? _editingHour; // null = no inline editor open
+  final void Function(DateTime startAt, DateTime endAt, bool isAllDay)
+      onRequestCreate;
 
   @override
   Widget build(BuildContext context) {
     final daySchedules =
-        widget.schedules
+        schedules
             .where(
-              (s) => sameDate(s.startAt.toLocal(), widget.focusDate),
+              (s) => sameDate(s.startAt.toLocal(), focusDate),
             )
             .toList()
           ..sort((a, b) => a.startAt.compareTo(b.startAt));
 
-    final allDaySchedules =
-        daySchedules.where((s) => s.isAllDay).toList();
-    final timedSchedules =
-        daySchedules.where((s) => !s.isAllDay).toList();
+    final allDaySchedules = daySchedules.where((s) => s.isAllDay).toList();
+    final timedSchedules = daySchedules.where((s) => !s.isAllDay).toList();
 
     final grouped = <int, List<SchedulesTableData>>{};
     for (final s in timedSchedules) {
@@ -199,7 +190,7 @@ class _DayScheduleViewState extends State<DayScheduleView> {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _AllDaySchedulePill(
                       schedule: s,
-                      onOpenScheduleDetail: widget.onOpenScheduleDetail,
+                      onOpenScheduleDetail: onOpenScheduleDetail,
                     ),
                   ),
                 ),
@@ -212,7 +203,6 @@ class _DayScheduleViewState extends State<DayScheduleView> {
         ...List<Widget>.generate(24, (index) {
           final hour = index;
           final items = grouped[hour] ?? const <SchedulesTableData>[];
-          final isEditing = _editingHour == hour;
 
           return Container(
             padding: const EdgeInsets.symmetric(vertical: 6),
@@ -243,57 +233,42 @@ class _DayScheduleViewState extends State<DayScheduleView> {
                             padding: const EdgeInsets.only(bottom: 6),
                             child: DayScheduleBlock(
                               schedule: s,
-                              isPending: widget.pendingScheduleIds
-                                  .contains(s.id),
-                              onChanged: (v) => widget.onToggleSchedule(
-                                s,
-                                v ?? false,
-                              ),
-                              onOpenDetail: () =>
-                                  widget.onOpenScheduleDetail(s),
+                              isPending: pendingScheduleIds.contains(s.id),
+                              onChanged: (v) =>
+                                  onToggleSchedule(s, v ?? false),
+                              onOpenDetail: () => onOpenScheduleDetail(s),
                             ),
                           ),
                         ),
-                      if (isEditing)
-                        _InlineEditor(
-                          hint: '${hour.toString().padLeft(2, '0')}:00 的日程',
-                          onSubmit: (title) async {
-                            final d = widget.focusDate;
-                            final start = DateTime(
-                              d.year, d.month, d.day, hour,
-                            ).toUtc();
-                            final end = start.add(const Duration(hours: 1));
-                            await widget.onInlineCreate(title, start, end, false);
-                            if (mounted) setState(() => _editingHour = null);
-                          },
-                          onCancel: () =>
-                              setState(() => _editingHour = null),
-                        )
-                      else
-                        // 点击空白区域打开编辑器
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () =>
-                              setState(() => _editingHour = hour),
-                          child: Container(
-                            height: 24,
-                            alignment: Alignment.centerLeft,
-                            child: items.isEmpty
-                                ? Text(
-                                    '+ 点击添加',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .outline
-                                              .withOpacity(0.4),
-                                        ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          final d = focusDate;
+                          final start =
+                              DateTime(d.year, d.month, d.day, hour).toUtc();
+                          final end =
+                              start.add(const Duration(hours: 1));
+                          onRequestCreate(start, end, false);
+                        },
+                        child: Container(
+                          height: 24,
+                          alignment: Alignment.centerLeft,
+                          child: items.isEmpty
+                              ? Text(
+                                  '+ 点击添加',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .outline
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -398,45 +373,36 @@ class _AllDaySchedulePill extends StatelessWidget {
   }
 }
 
-class WeekScheduleView extends StatefulWidget {
+class WeekScheduleView extends StatelessWidget {
   const WeekScheduleView({
     required this.focusDate,
     required this.schedules,
     required this.onOpenScheduleDetail,
-    required this.onInlineCreate,
+    required this.onRequestCreate,
     super.key,
   });
 
   final DateTime focusDate;
   final List<SchedulesTableData> schedules;
   final ValueChanged<SchedulesTableData> onOpenScheduleDetail;
-  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
-      onInlineCreate;
-
-  @override
-  State<WeekScheduleView> createState() => _WeekScheduleViewState();
-}
-
-class _WeekScheduleViewState extends State<WeekScheduleView> {
-  DateTime? _editingDay;
+  final void Function(DateTime startAt, DateTime endAt, bool isAllDay)
+      onRequestCreate;
 
   @override
   Widget build(BuildContext context) {
-    final weekStart = startOfWeek(widget.focusDate);
+    final weekStart = startOfWeek(focusDate);
 
     return Column(
       children: List<Widget>.generate(7, (index) {
         final day = weekStart.add(Duration(days: index));
         final daySchedules =
-            widget.schedules
+            schedules
                 .where((s) => sameDate(s.startAt.toLocal(), day))
                 .toList()
               ..sort((a, b) => a.startAt.compareTo(b.startAt));
         final allDaySchedules = daySchedules.where((s) => s.isAllDay).toList();
         final timedSchedules =
             daySchedules.where((s) => !s.isAllDay).toList();
-        final isEditing =
-            _editingDay != null && sameDate(_editingDay!, day);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
@@ -446,7 +412,12 @@ class _WeekScheduleViewState extends State<WeekScheduleView> {
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: isEditing ? null : () => setState(() => _editingDay = day),
+            onTap: () {
+              final start =
+                  DateTime(day.year, day.month, day.day, 9).toUtc();
+              final end = start.add(const Duration(hours: 1));
+              onRequestCreate(start, end, false);
+            },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
@@ -460,15 +431,17 @@ class _WeekScheduleViewState extends State<WeekScheduleView> {
                       children: <Widget>[
                         Text(
                           weekdayShort(day.weekday),
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                         Text(
                           DateFormat('M月d日').format(day),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
                         ),
                       ],
                     ),
@@ -479,56 +452,54 @@ class _WeekScheduleViewState extends State<WeekScheduleView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        if (isEditing)
-                          _InlineEditor(
-                            hint: '${DateFormat('M月d日').format(day)} 的计划',
-                            compact: true,
-                            onSubmit: (title) async {
-                              final start = DateTime(day.year, day.month, day.day).toUtc();
-                              final end = DateTime(day.year, day.month, day.day + 1).toUtc();
-                              await widget.onInlineCreate(title, start, end, true);
-                              if (mounted) setState(() => _editingDay = null);
-                            },
-                            onCancel: () => setState(() => _editingDay = null),
-                          )
-                        else if (daySchedules.isEmpty)
+                        if (daySchedules.isEmpty)
                           Text(
                             '+ 点击添加计划',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
-                            ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .outline
+                                      .withValues(alpha: 0.5),
+                                ),
                           )
                         else ...<Widget>[
                           ...allDaySchedules.map(
                             (s) => InkWell(
-                              onTap: () => widget.onOpenScheduleDetail(s),
+                              onTap: () => onOpenScheduleDetail(s),
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
                                 child: Text(
                                   '全天 ${s.title}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: const Color(0xFF114B45),
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: const Color(0xFF114B45),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
                               ),
                             ),
                           ),
                           ...timedSchedules.map(
                             (s) => InkWell(
-                              onTap: () => widget.onOpenScheduleDetail(s),
+                              onTap: () => onOpenScheduleDetail(s),
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
                                 child: Text(
                                   '${DateFormat('HH:mm').format(s.startAt.toLocal())} ${s.title}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: const Color(0xFF114B45),
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: const Color(0xFF114B45),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
                               ),
                             ),
@@ -547,13 +518,13 @@ class _WeekScheduleViewState extends State<WeekScheduleView> {
   }
 }
 
-class MonthScheduleView extends StatefulWidget {
+class MonthScheduleView extends StatelessWidget {
   const MonthScheduleView({
     required this.focusDate,
     required this.schedules,
     required this.onOpenScheduleDetail,
     required this.onSelectDate,
-    required this.onInlineCreate,
+    required this.onRequestCreate,
     super.key,
   });
 
@@ -561,38 +532,33 @@ class MonthScheduleView extends StatefulWidget {
   final List<SchedulesTableData> schedules;
   final ValueChanged<SchedulesTableData> onOpenScheduleDetail;
   final ValueChanged<DateTime> onSelectDate;
-  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
-      onInlineCreate;
-
-  @override
-  State<MonthScheduleView> createState() => _MonthScheduleViewState();
-}
-
-class _MonthScheduleViewState extends State<MonthScheduleView> {
-  int? _editingWeek; // week index 0-5
+  final void Function(DateTime startAt, DateTime endAt, bool isAllDay)
+      onRequestCreate;
 
   @override
   Widget build(BuildContext context) {
-    final monthStart = DateTime(widget.focusDate.year, widget.focusDate.month, 1);
-    final gridStart = monthStart.subtract(Duration(days: monthStart.weekday - 1));
+    final monthStart =
+        DateTime(focusDate.year, focusDate.month, 1);
+    final gridStart =
+        monthStart.subtract(Duration(days: monthStart.weekday - 1));
     final theme = Theme.of(context);
 
     return Column(
       children: List<Widget>.generate(6, (weekIndex) {
         final weekStart = gridStart.add(Duration(days: weekIndex * 7));
         final weekEnd = weekStart.add(const Duration(days: 7));
-        final weekSchedules = widget.schedules
+        final weekSchedules = schedules
             .where((s) {
               final d = s.startAt.toLocal();
               return !d.isBefore(weekStart) && d.isBefore(weekEnd);
             })
             .toList()
           ..sort((a, b) => a.startAt.compareTo(b.startAt));
-        final isEditing = _editingWeek == weekIndex;
 
         // 跳过完全不属于本月的周
-        final hasCurrentMonth = List.generate(7, (i) => weekStart.add(Duration(days: i)))
-            .any((d) => d.month == widget.focusDate.month);
+        final hasCurrentMonth =
+            List.generate(7, (i) => weekStart.add(Duration(days: i)))
+                .any((d) => d.month == focusDate.month);
         if (!hasCurrentMonth) return const SizedBox.shrink();
 
         final weekLabel =
@@ -606,9 +572,16 @@ class _MonthScheduleViewState extends State<MonthScheduleView> {
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: isEditing ? null : () => setState(() => _editingWeek = weekIndex),
+            onTap: () {
+              final start =
+                  DateTime(weekStart.year, weekStart.month, weekStart.day, 9)
+                      .toUtc();
+              final end = start.add(const Duration(hours: 1));
+              onRequestCreate(start, end, false);
+            },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -639,29 +612,17 @@ class _MonthScheduleViewState extends State<MonthScheduleView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        if (isEditing)
-                          _InlineEditor(
-                            hint: '添加本周计划',
-                            compact: true,
-                            onSubmit: (title) async {
-                              final start = weekStart.toUtc();
-                              final end = weekEnd.toUtc();
-                              await widget.onInlineCreate(title, start, end, true);
-                              if (mounted) setState(() => _editingWeek = null);
-                            },
-                            onCancel: () => setState(() => _editingWeek = null),
-                          )
-                        else if (weekSchedules.isEmpty)
+                        if (weekSchedules.isEmpty)
                           Text(
                             '+ 点击添加计划',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.outline.withOpacity(0.5),
+                              color: theme.colorScheme.outline.withValues(alpha: 0.5),
                             ),
                           )
                         else
                           ...weekSchedules.take(3).map(
                             (s) => InkWell(
-                              onTap: () => widget.onOpenScheduleDetail(s),
+                              onTap: () => onOpenScheduleDetail(s),
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
                                 child: Text(
@@ -678,7 +639,7 @@ class _MonthScheduleViewState extends State<MonthScheduleView> {
                               ),
                             ),
                           ),
-                        if (!isEditing && weekSchedules.length > 3)
+                        if (weekSchedules.length > 3)
                           Text(
                             '还有 ${weekSchedules.length - 3} 项...',
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -698,32 +659,25 @@ class _MonthScheduleViewState extends State<MonthScheduleView> {
   }
 }
 
-class YearScheduleView extends StatefulWidget {
+class YearScheduleView extends StatelessWidget {
   const YearScheduleView({
     required this.focusDate,
     required this.schedules,
     required this.onSelectMonth,
-    required this.onInlineCreate,
+    required this.onRequestCreate,
     super.key,
   });
 
   final DateTime focusDate;
   final List<SchedulesTableData> schedules;
   final ValueChanged<DateTime> onSelectMonth;
-  final Future<void> Function(String title, DateTime startAt, DateTime endAt, bool isAllDay)
-      onInlineCreate;
-
-  @override
-  State<YearScheduleView> createState() => _YearScheduleViewState();
-}
-
-class _YearScheduleViewState extends State<YearScheduleView> {
-  int? _editingMonth;
+  final void Function(DateTime startAt, DateTime endAt, bool isAllDay)
+      onRequestCreate;
 
   @override
   Widget build(BuildContext context) {
-    final yearSchedules = widget.schedules
-        .where((s) => s.startAt.toLocal().year == widget.focusDate.year)
+    final yearSchedules = schedules
+        .where((s) => s.startAt.toLocal().year == focusDate.year)
         .toList();
     final theme = Theme.of(context);
 
@@ -734,7 +688,6 @@ class _YearScheduleViewState extends State<YearScheduleView> {
             .where((s) => s.startAt.toLocal().month == month)
             .toList()
           ..sort((a, b) => a.startAt.compareTo(b.startAt));
-        final isEditing = _editingMonth == month;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
@@ -744,9 +697,15 @@ class _YearScheduleViewState extends State<YearScheduleView> {
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: isEditing ? null : () => setState(() => _editingMonth = month),
+            onTap: () {
+              final start =
+                  DateTime(focusDate.year, month, 1, 9).toUtc();
+              final end = start.add(const Duration(hours: 1));
+              onRequestCreate(start, end, false);
+            },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -754,8 +713,8 @@ class _YearScheduleViewState extends State<YearScheduleView> {
                   SizedBox(
                     width: 48,
                     child: InkWell(
-                      onTap: () => widget.onSelectMonth(
-                        DateTime(widget.focusDate.year, month, 1),
+                      onTap: () => onSelectMonth(
+                        DateTime(focusDate.year, month, 1),
                       ),
                       child: Text(
                         '$month月',
@@ -771,27 +730,12 @@ class _YearScheduleViewState extends State<YearScheduleView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        if (isEditing)
-                          _InlineEditor(
-                            hint: '$month月的目标计划',
-                            compact: true,
-                            onSubmit: (title) async {
-                              final start = DateTime(
-                                widget.focusDate.year, month, 1,
-                              ).toUtc();
-                              final end = DateTime(
-                                widget.focusDate.year, month + 1, 1,
-                              ).toUtc();
-                              await widget.onInlineCreate(title, start, end, true);
-                              if (mounted) setState(() => _editingMonth = null);
-                            },
-                            onCancel: () => setState(() => _editingMonth = null),
-                          )
-                        else if (monthSchedules.isEmpty)
+                        if (monthSchedules.isEmpty)
                           Text(
                             '+ 点击添加目标',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.outline.withOpacity(0.5),
+                              color:
+                                  theme.colorScheme.outline.withValues(alpha: 0.5),
                             ),
                           )
                         else
@@ -812,7 +756,7 @@ class _YearScheduleViewState extends State<YearScheduleView> {
                               ),
                             ),
                           ),
-                        if (!isEditing && monthSchedules.length > 3)
+                        if (monthSchedules.length > 3)
                           Text(
                             '还有 ${monthSchedules.length - 3} 项...',
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -897,105 +841,4 @@ String weekdayShort(int weekday) {
     DateTime.sunday: '周日',
   };
   return labels[weekday] ?? '';
-}
-
-/// Lightweight inline text editor used in calendar views to quickly create
-/// a schedule entry without navigating away.
-class _InlineEditor extends StatefulWidget {
-  const _InlineEditor({
-    required this.hint,
-    required this.onSubmit,
-    required this.onCancel,
-    this.compact = false,
-  });
-
-  final String hint;
-  final Future<void> Function(String title) onSubmit;
-  final VoidCallback onCancel;
-  final bool compact;
-
-  @override
-  State<_InlineEditor> createState() => _InlineEditorState();
-}
-
-class _InlineEditorState extends State<_InlineEditor> {
-  final _controller = TextEditingController();
-  bool _submitting = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final title = _controller.text.trim();
-    if (title.isEmpty) return;
-    setState(() => _submitting = true);
-    try {
-      await widget.onSubmit(title);
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: TextField(
-            controller: _controller,
-            autofocus: true,
-            enabled: !_submitting,
-            style: widget.compact
-                ? theme.textTheme.bodySmall
-                : theme.textTheme.bodyMedium,
-            decoration: InputDecoration(
-              hintText: widget.hint,
-              hintStyle: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline.withOpacity(0.5),
-              ),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 6,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: theme.colorScheme.outline),
-              ),
-            ),
-            onSubmitted: (_) => _submit(),
-          ),
-        ),
-        const SizedBox(width: 4),
-        if (_submitting)
-          const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        else ...<Widget>[
-          IconButton(
-            icon: const Icon(Icons.check, size: 18),
-            tooltip: '确认',
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: _submit,
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18),
-            tooltip: '取消',
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: widget.onCancel,
-          ),
-        ],
-      ],
-    );
-  }
 }

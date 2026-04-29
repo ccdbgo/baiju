@@ -34,7 +34,7 @@ class _TodoPageState extends ConsumerState<TodoPage> {
   final Set<String> _pendingTodoIds = <String>{};
   final Set<String> _convertingTodoIds = <String>{};
 
-  TodoPriority _selectedPriority = TodoPriority.medium;
+  TodoPriority _selectedPriority = TodoPriority.notUrgentImportant;
   String? _selectedGoalId;
   TodoSortOption _sortOption = TodoSortOption.updatedDesc;
   DateTime? _dueAt;
@@ -65,14 +65,6 @@ class _TodoPageState extends ConsumerState<TodoPage> {
           Text('管理你的任务清单，支持优先级、截止时间和子任务。', style: theme.textTheme.bodyLarge),
           const SizedBox(height: 18),
           _TodoSummaryCard(summary: summary),
-          const SizedBox(height: 16),
-          _TodoWorkbenchCard(
-            summary: summary,
-            selectedFilter: selectedFilter,
-            searchQuery: _searchController.text.trim(),
-            onOpenToday: () => context.push('/today'),
-            onOpenTimeline: () => context.push('/timeline'),
-          ),
           const SizedBox(height: 16),
           _QuickCreateCard(
             controller: _titleController,
@@ -215,7 +207,7 @@ class _TodoPageState extends ConsumerState<TodoPage> {
       _titleController.clear();
       if (mounted) {
         setState(() {
-          _selectedPriority = TodoPriority.medium;
+          _selectedPriority = TodoPriority.notUrgentImportant;
           _selectedGoalId = null;
           _dueAt = null;
         });
@@ -367,11 +359,13 @@ class _TodoPageState extends ConsumerState<TodoPage> {
 
   int _priorityWeight(String value) {
     switch (TodoPriority.fromValue(value)) {
-      case TodoPriority.high:
+      case TodoPriority.urgentImportant:
+        return 4;
+      case TodoPriority.notUrgentImportant:
         return 3;
-      case TodoPriority.medium:
+      case TodoPriority.urgentNotImportant:
         return 2;
-      case TodoPriority.low:
+      case TodoPriority.notUrgentNotImportant:
         return 1;
     }
   }
@@ -425,103 +419,6 @@ class _TodoSummaryCard extends StatelessWidget {
             child: Center(child: CircularProgressIndicator()),
           ),
           error: (error, stackTrace) => Text('统计加载失败：$error'),
-        ),
-      ),
-    );
-  }
-}
-
-class _TodoWorkbenchCard extends StatelessWidget {
-  const _TodoWorkbenchCard({
-    required this.summary,
-    required this.selectedFilter,
-    required this.searchQuery,
-    required this.onOpenToday,
-    required this.onOpenTimeline,
-  });
-
-  final AsyncValue<TodoSummary> summary;
-  final TodoFilter selectedFilter;
-  final String searchQuery;
-  final VoidCallback onOpenToday;
-  final VoidCallback onOpenTimeline;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFFF5F0E5),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        '待办工作台',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '今日待办已在今日页聚合展示，快速处理截止今天的任务。',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: onOpenToday,
-                  icon: const Icon(Icons.today_outlined),
-                  label: const Text('今日页'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            summary.when(
-              data: (value) => Row(
-                children: <Widget>[
-                  Expanded(
-                    child: _SummaryItem(
-                      label: '今天',
-                      value: '${value.today}',
-                      color: const Color(0xFFC06C00),
-                    ),
-                  ),
-                  Expanded(
-                    child: _SummaryItem(
-                      label: '进行中',
-                      value: '${value.active}',
-                      color: const Color(0xFF136F63),
-                    ),
-                  ),
-                  Expanded(
-                    child: _SummaryItem(
-                      label: '已完成',
-                      value: '${value.completed}',
-                      color: const Color(0xFF607D8B),
-                    ),
-                  ),
-                ],
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stackTrace) => Text('统计加载失败：$error'),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                Chip(label: Text('筛选：${selectedFilter.label}')),
-                if (searchQuery.isNotEmpty)
-                  Chip(label: Text('关键词：$searchQuery')),
-                ActionChip(label: const Text('时间线'), onPressed: onOpenTimeline),
-              ],
-            ),
-          ],
         ),
       ),
     );
@@ -835,24 +732,19 @@ class _TodoListItem extends StatelessWidget {
   }
 
   String _priorityLabel(String value) {
-    switch (TodoPriority.fromValue(value)) {
-      case TodoPriority.high:
-        return '高优先级';
-      case TodoPriority.medium:
-        return '中优先级';
-      case TodoPriority.low:
-        return '低优先级';
-    }
+    return TodoPriority.fromValue(value).label;
   }
 
   Color _priorityColor(String value) {
     switch (TodoPriority.fromValue(value)) {
-      case TodoPriority.high:
-        return const Color(0xFFB03A2E);
-      case TodoPriority.medium:
-        return const Color(0xFFC06C00);
-      case TodoPriority.low:
-        return const Color(0xFF5D7A5D);
+      case TodoPriority.urgentImportant:
+        return const Color(0xFFB03A2E); // 红色 - 重要紧急
+      case TodoPriority.notUrgentImportant:
+        return const Color(0xFF2874A6); // 蓝色 - 重要不紧急
+      case TodoPriority.urgentNotImportant:
+        return const Color(0xFFC06C00); // 橙色 - 不重要紧急
+      case TodoPriority.notUrgentNotImportant:
+        return const Color(0xFF5D7A5D); // 绿色 - 不重要不紧急
     }
   }
 

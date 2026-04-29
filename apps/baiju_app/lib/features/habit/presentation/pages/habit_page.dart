@@ -68,15 +68,6 @@ class _HabitPageState extends ConsumerState<HabitPage> {
           const SizedBox(height: 18),
           _HabitSummaryCard(summary: summary),
           const SizedBox(height: 16),
-          _HabitWorkbenchCard(
-            summary: summary,
-            pendingReminderCount: pendingReminderCount,
-            showOnlyGoalLinked: _showOnlyGoalLinked,
-            searchQuery: _searchController.text.trim(),
-            onOpenToday: () => context.push('/today'),
-            onOpenGoals: () => context.push('/goal'),
-          ),
-          const SizedBox(height: 16),
           _ReminderManagementCard(
             pendingReminderCount: pendingReminderCount,
             isBusy: _isManagingReminders,
@@ -601,116 +592,6 @@ class _HabitSummaryCard extends StatelessWidget {
             child: Center(child: CircularProgressIndicator()),
           ),
           error: (error, stackTrace) => Text('习惯统计加载失败：$error'),
-        ),
-      ),
-    );
-  }
-}
-
-class _HabitWorkbenchCard extends StatelessWidget {
-  const _HabitWorkbenchCard({
-    required this.summary,
-    required this.pendingReminderCount,
-    required this.showOnlyGoalLinked,
-    required this.searchQuery,
-    required this.onOpenToday,
-    required this.onOpenGoals,
-  });
-
-  final AsyncValue<HabitSummary> summary;
-  final AsyncValue<int> pendingReminderCount;
-  final bool showOnlyGoalLinked;
-  final String searchQuery;
-  final VoidCallback onOpenToday;
-  final VoidCallback onOpenGoals;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFFF5F0E5),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        '习惯工作台',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '把提醒状态、目标联动和今天执行入口提到主页，减少切换成本。',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: onOpenToday,
-                  icon: const Icon(Icons.today_outlined),
-                  label: const Text('今日页'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: summary.when(
-                    data: (value) => _HabitMetric(
-                      label: '今天打卡',
-                      value: '${value.checkedToday}',
-                      color: const Color(0xFFC06C00),
-                    ),
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (error, stackTrace) => Text('统计加载失败：$error'),
-                  ),
-                ),
-                Expanded(
-                  child: pendingReminderCount.when(
-                    data: (count) => _HabitMetric(
-                      label: '待提醒',
-                      value: '$count',
-                      color: const Color(0xFF607D8B),
-                    ),
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (error, stackTrace) => Text('提醒加载失败：$error'),
-                  ),
-                ),
-                Expanded(
-                  child: summary.when(
-                    data: (value) => _HabitMetric(
-                      label: '进行中',
-                      value: '${value.active}',
-                      color: const Color(0xFF136F63),
-                    ),
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (error, stackTrace) => Text('统计加载失败：$error'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                if (showOnlyGoalLinked) const Chip(label: Text('仅看已关联目标')),
-                if (searchQuery.isNotEmpty)
-                  Chip(label: Text('关键词：$searchQuery')),
-                ActionChip(label: const Text('目标页'), onPressed: onOpenGoals),
-              ],
-            ),
-          ],
         ),
       ),
     );

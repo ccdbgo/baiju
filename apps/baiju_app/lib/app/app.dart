@@ -35,16 +35,7 @@ class BaijuApp extends StatelessWidget {
 
         final scopedContent = UserScope(child: content);
 
-        if (environment.name == 'prod') {
-          return scopedContent;
-        }
-
-        return Banner(
-          message: environment.name.toUpperCase(),
-          location: BannerLocation.topEnd,
-          color: Colors.deepOrange,
-          child: scopedContent,
-        );
+        return scopedContent;
       },
     );
   }

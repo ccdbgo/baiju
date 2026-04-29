@@ -10,9 +10,10 @@ enum TodoFilter {
 }
 
 enum TodoPriority {
-  low('low', '低优先级'),
-  medium('medium', '中优先级'),
-  high('high', '高优先级');
+  urgentImportant('urgent_important', '重要紧急'),
+  notUrgentImportant('not_urgent_important', '重要不紧急'),
+  urgentNotImportant('urgent_not_important', '不重要紧急'),
+  notUrgentNotImportant('not_urgent_not_important', '不重要不紧急');
 
   const TodoPriority(this.value, this.label);
 
@@ -22,7 +23,7 @@ enum TodoPriority {
   static TodoPriority fromValue(String value) {
     return TodoPriority.values.firstWhere(
       (priority) => priority.value == value,
-      orElse: () => TodoPriority.medium,
+      orElse: () => TodoPriority.notUrgentImportant,
     );
   }
 }

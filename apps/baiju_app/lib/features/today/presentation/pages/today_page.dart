@@ -1086,23 +1086,18 @@ class _TodayTodoTile extends StatelessWidget {
   }
 
   String _priorityLabel(String value) {
-    switch (TodoPriority.fromValue(value)) {
-      case TodoPriority.high:
-        return '高优先级';
-      case TodoPriority.medium:
-        return '中优先级';
-      case TodoPriority.low:
-        return '低优先级';
-    }
+    return TodoPriority.fromValue(value).label;
   }
 
   Color _priorityColor(String value) {
     switch (TodoPriority.fromValue(value)) {
-      case TodoPriority.high:
+      case TodoPriority.urgentImportant:
         return const Color(0xFFB03A2E);
-      case TodoPriority.medium:
+      case TodoPriority.notUrgentImportant:
+        return const Color(0xFF2874A6);
+      case TodoPriority.urgentNotImportant:
         return const Color(0xFFC06C00);
-      case TodoPriority.low:
+      case TodoPriority.notUrgentNotImportant:
         return const Color(0xFF5D7A5D);
     }
   }
@@ -1151,11 +1146,13 @@ class _PreviewTile extends StatelessWidget {
 
   Color _priorityColor(String value) {
     switch (TodoPriority.fromValue(value)) {
-      case TodoPriority.high:
+      case TodoPriority.urgentImportant:
         return const Color(0xFFB03A2E);
-      case TodoPriority.medium:
+      case TodoPriority.notUrgentImportant:
+        return const Color(0xFF2874A6);
+      case TodoPriority.urgentNotImportant:
         return const Color(0xFFC06C00);
-      case TodoPriority.low:
+      case TodoPriority.notUrgentNotImportant:
         return const Color(0xFF5D7A5D);
     }
   }

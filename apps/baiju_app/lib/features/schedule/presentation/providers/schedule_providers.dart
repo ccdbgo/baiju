@@ -169,12 +169,22 @@ class ScheduleActions {
     required DateTime startAt,
     required DateTime endAt,
     bool isAllDay = false,
+    String? location,
+    String? category,
+    String? description,
+    String? recurrenceRule,
+    int? reminderMinutesBefore,
   }) {
     return _repository.createScheduleAt(
       title: title,
       startAt: startAt,
       endAt: endAt,
       isAllDay: isAllDay,
+      location: location,
+      category: category,
+      description: description,
+      recurrenceRule: recurrenceRule,
+      reminderMinutesBefore: reminderMinutesBefore,
     );
   }
 
@@ -221,7 +231,7 @@ class ScheduleActions {
 
   Future<String> convertScheduleToTodo({
     required SchedulesTableData schedule,
-    TodoPriority priority = TodoPriority.medium,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
     DateTime? dueAt,
   }) async {
     final todoId = await _todoRepository.createTodoFromSchedule(
@@ -238,7 +248,7 @@ class ScheduleActions {
 
   Future<String> convertToTodo({
     required SchedulesTableData schedule,
-    TodoPriority priority = TodoPriority.medium,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
     DateTime? dueAt,
   }) {
     return convertScheduleToTodo(
@@ -250,7 +260,7 @@ class ScheduleActions {
 
   Future<String> createTodoFromSchedule({
     required SchedulesTableData schedule,
-    TodoPriority priority = TodoPriority.medium,
+    TodoPriority priority = TodoPriority.notUrgentImportant,
     DateTime? dueAt,
   }) {
     return convertScheduleToTodo(

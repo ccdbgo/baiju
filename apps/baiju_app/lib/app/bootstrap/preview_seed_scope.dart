@@ -135,19 +135,19 @@ class PreviewSeedController {
 
     await todoRepo.createTodo(
       title: '整理今天重点任务',
-      priority: TodoPriority.high,
+      priority: TodoPriority.urgentImportant,
       dueToday: true,
       goalId: autoGoal.id,
     );
     await todoRepo.createTodo(
       title: '提交阶段复盘',
-      priority: TodoPriority.medium,
+      priority: TodoPriority.notUrgentImportant,
       dueToday: false,
       goalId: autoGoal.id,
     );
     await todoRepo.createTodo(
       title: '读完本周第三篇文章',
-      priority: TodoPriority.low,
+      priority: TodoPriority.notUrgentNotImportant,
       dueToday: false,
       goalId: manualGoal.id,
     );
