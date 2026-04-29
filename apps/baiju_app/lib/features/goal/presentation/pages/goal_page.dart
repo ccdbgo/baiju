@@ -3,6 +3,7 @@ import 'package:baiju_app/features/goal/domain/goal_models.dart';
 import 'package:baiju_app/features/goal/presentation/providers/goal_providers.dart';
 import 'package:baiju_app/features/habit/domain/habit_models.dart';
 import 'package:baiju_app/features/habit/presentation/providers/habit_providers.dart';
+import 'package:baiju_app/features/schedule/presentation/widgets/schedule_calendar_views.dart';
 import 'package:baiju_app/shared/widgets/list_controls.dart';
 import 'package:baiju_app/features/todo/domain/todo_filter.dart';
 import 'package:baiju_app/features/todo/presentation/providers/todo_providers.dart';
@@ -42,39 +43,16 @@ class GoalPage extends ConsumerStatefulWidget {
 
 class _GoalPageState extends ConsumerState<GoalPage> {
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _targetController = TextEditingController();
-  final TextEditingController _unitController = TextEditingController();
 
-  GoalType _selectedType = GoalType.stage;
   GoalStatus? _selectedStatus;
   GoalSortOption _sortOption = GoalSortOption.updatedDesc;
-  GoalProgressMode _selectedProgressMode = GoalProgressMode.mixed;
-  double _todoWeight = 0.7;
-  double _todoUnitWeight = 1.0;
-  double _habitUnitWeight = 0.5;
-  TodoPriority _selectedPriority = TodoPriority.notUrgentImportant;
-  bool _isCreating = false;
 
   GoalViewMode _selectedView = GoalViewMode.day;
   DateTime _focusDate = DateTime.now();
-  // slot key → controller for per-row inline add
-  final Map<String, TextEditingController> _slotControllers = {};
-  String? _creatingSlot;
-
-  TextEditingController _slotController(String key) {
-    return _slotControllers.putIfAbsent(key, TextEditingController.new);
-  }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _titleController.dispose();
-    _targetController.dispose();
-    _unitController.dispose();
-    for (final c in _slotControllers.values) {
-      c.dispose();
-    }
     super.dispose();
   }
 
@@ -113,7 +91,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
                 setState(() => _selectedView = s.first),
           ),
           const SizedBox(height: 10),
-          // Date navigation
+          // Date navigation header
           _GoalViewDateHeader(
             viewMode: _selectedView,
             focusDate: _focusDate,
@@ -126,17 +104,16 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             onToday: () => setState(() => _focusDate = DateTime.now()),
           ),
           const SizedBox(height: 8),
-          // Goal view card
+          // Goal view card — shows goals in the selected time period
           goals.when(
-            data: (items) {
-              return _GoalTimelineCard(
-                viewMode: _selectedView,
-                focusDate: _focusDate,
-                creatingSlot: _creatingSlot,
-                controllerForSlot: _slotController,
-                onSubmit: _createGoalFromSlot,
-              );
-            },
+            data: (items) => GoalViewCard(
+              selectedView: _selectedView,
+              focusDate: _focusDate,
+              goals: items,
+              onOpenDetail: (goal) => context.push('/goal/${goal.id}'),
+              onCreateGoal: _createGoalFromSlot,
+              onReschedule: _rescheduleGoal,
+            ),
             loading: () => const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Center(child: CircularProgressIndicator()),
@@ -144,30 +121,8 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             error: (e, _) => _GoalErrorCard(message: '视图加载失败：$e'),
           ),
           const SizedBox(height: 16),
-          _GoalCreateCard(
-            titleController: _titleController,
-            targetController: _targetController,
-            unitController: _unitController,
-            selectedType: _selectedType,
-            selectedProgressMode: _selectedProgressMode,
-            todoWeight: _todoWeight,
-            todoUnitWeight: _todoUnitWeight,
-            habitUnitWeight: _habitUnitWeight,
-            selectedPriority: _selectedPriority,
-            isCreating: _isCreating,
-            onTypeChanged: (value) => setState(() => _selectedType = value),
-            onProgressModeChanged: (value) =>
-                setState(() => _selectedProgressMode = value),
-            onTodoWeightChanged: (value) => setState(() => _todoWeight = value),
-            onTodoUnitWeightChanged: (value) =>
-                setState(() => _todoUnitWeight = value),
-            onHabitUnitWeightChanged: (value) =>
-                setState(() => _habitUnitWeight = value),
-            onPriorityChanged: (value) =>
-                setState(() => _selectedPriority = value),
-            onSubmit: _createGoal,
-          ),
-          const SizedBox(height: 16),
+          Text('目标列表', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
           ModuleSearchField(
             controller: _searchController,
             labelText: '搜索目标',
@@ -287,56 +242,6 @@ class _GoalPageState extends ConsumerState<GoalPage> {
     );
   }
 
-  Future<void> _createGoal() async {
-    final title = _titleController.text.trim();
-    if (title.isEmpty || _isCreating) {
-      return;
-    }
-
-    setState(() => _isCreating = true);
-    try {
-      await ref
-          .read(goalActionsProvider)
-          .createGoal(
-            title: title,
-            goalType: _selectedType,
-            progressMode: _selectedProgressMode,
-            todoWeight: _todoWeight,
-            habitWeight: (1 - _todoWeight).toDouble(),
-            todoUnitWeight: _todoUnitWeight,
-            habitUnitWeight: _habitUnitWeight,
-            progressTarget: double.tryParse(_targetController.text.trim()),
-            unit: _unitController.text.trim().isEmpty
-                ? null
-                : _unitController.text.trim(),
-            priority: _selectedPriority,
-          );
-      if (mounted) {
-        _titleController.clear();
-        _targetController.clear();
-        _unitController.clear();
-        setState(() {
-          _selectedType = GoalType.stage;
-          _selectedProgressMode = GoalProgressMode.mixed;
-          _todoWeight = 0.7;
-          _todoUnitWeight = 1.0;
-          _habitUnitWeight = 0.5;
-          _selectedPriority = TodoPriority.notUrgentImportant;
-        });
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('新增目标失败：$error')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isCreating = false);
-      }
-    }
-  }
-
   DateTime _shiftDate(DateTime date, GoalViewMode mode, int delta) {
     switch (mode) {
       case GoalViewMode.day:
@@ -350,17 +255,12 @@ class _GoalPageState extends ConsumerState<GoalPage> {
     }
   }
 
-  Future<void> _createGoalFromSlot(String slotKey) async {
-    final controller = _slotControllers[slotKey];
-    if (controller == null) return;
-    final title = controller.text.trim();
-    if (title.isEmpty || _creatingSlot != null) return;
-
-    setState(() => _creatingSlot = slotKey);
+  Future<void> _createGoalFromSlot(String title, GoalType goalType, DateTime slotDate) async {
+    if (title.isEmpty) return;
     try {
       await ref.read(goalActionsProvider).createGoal(
             title: title,
-            goalType: _selectedView.goalType,
+            goalType: goalType,
             progressMode: GoalProgressMode.mixed,
             todoWeight: 0.7,
             habitWeight: 0.3,
@@ -368,19 +268,25 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             habitUnitWeight: 0.5,
             progressTarget: null,
             unit: null,
+            startDate: slotDate,
           );
-      if (mounted) {
-        controller.clear();
-      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('新增目标失败：$error')),
         );
       }
-    } finally {
+    }
+  }
+
+  Future<void> _rescheduleGoal(GoalsTableData goal, DateTime newStartDate) async {
+    try {
+      await ref.read(goalActionsProvider).rescheduleGoal(goal, newStartDate);
+    } catch (error) {
       if (mounted) {
-        setState(() => _creatingSlot = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('调整目标时间失败：$error')),
+        );
       }
     }
   }
@@ -732,6 +638,8 @@ class _GoalPageState extends ConsumerState<GoalPage> {
   }
 }
 
+// ─── Date header (styled like ViewHeader from schedule_calendar_views) ────────
+
 class _GoalViewDateHeader extends StatelessWidget {
   const _GoalViewDateHeader({
     required this.viewMode,
@@ -750,282 +658,774 @@ class _GoalViewDateHeader extends StatelessWidget {
   String get _label {
     switch (viewMode) {
       case GoalViewMode.day:
-        return DateFormat('M月d日 EEEE', 'zh').format(focusDate);
+        return DateFormat('M月d日').format(focusDate);
       case GoalViewMode.week:
-        final start = focusDate.subtract(
-          Duration(days: focusDate.weekday - 1),
-        );
-        final end = start.add(const Duration(days: 6));
-        return '${DateFormat('M月d日', 'zh').format(start)} — ${DateFormat('M月d日', 'zh').format(end)}';
+        final start = startOfWeek(focusDate);
+        return '${DateFormat('M月d日').format(start)} - ${DateFormat('M月d日').format(start.add(const Duration(days: 6)))}';
       case GoalViewMode.month:
-        return DateFormat('yyyy年M月', 'zh').format(focusDate);
+        return DateFormat('yyyy年M月').format(focusDate);
       case GoalViewMode.year:
-        return DateFormat('yyyy年', 'zh').format(focusDate);
+        return DateFormat('yyyy年').format(focusDate);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isToday = _isCurrentPeriod();
     return Row(
       children: <Widget>[
-        IconButton(
-          onPressed: onPrev,
-          icon: const Icon(Icons.chevron_left),
-          iconSize: 20,
-          visualDensity: VisualDensity.compact,
-        ),
+        IconButton(onPressed: onPrev, icon: const Icon(Icons.chevron_left)),
         Expanded(
-          child: GestureDetector(
-            onTap: onToday,
-            child: Text(
-              _label,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: isToday
-                    ? Theme.of(context).colorScheme.primary
-                    : null,
-              ),
-            ),
+          child: Text(
+            _label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge,
           ),
         ),
-        IconButton(
-          onPressed: onNext,
-          icon: const Icon(Icons.chevron_right),
-          iconSize: 20,
-          visualDensity: VisualDensity.compact,
-        ),
+        TextButton(onPressed: onToday, child: const Text('今天')),
+        IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right)),
       ],
     );
   }
-
-  bool _isCurrentPeriod() {
-    final now = DateTime.now();
-    switch (viewMode) {
-      case GoalViewMode.day:
-        return focusDate.year == now.year &&
-            focusDate.month == now.month &&
-            focusDate.day == now.day;
-      case GoalViewMode.week:
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final endOfWeek = startOfWeek.add(const Duration(days: 6));
-        return !focusDate.isBefore(startOfWeek) &&
-            !focusDate.isAfter(endOfWeek);
-      case GoalViewMode.month:
-        return focusDate.year == now.year && focusDate.month == now.month;
-      case GoalViewMode.year:
-        return focusDate.year == now.year;
-    }
-  }
 }
 
-class _GoalTimelineCard extends StatelessWidget {
-  const _GoalTimelineCard({
-    required this.viewMode,
+// ─── GoalViewCard: routes to per-mode goal views (with inline add) ────────────
+
+DateTime _goalEffectiveDate(GoalsTableData goal) =>
+    (goal.startDate ?? goal.createdAt).toLocal();
+
+/// [onCreateGoal] receives (title, goalType) when the user submits inline.
+class GoalViewCard extends StatefulWidget {
+  const GoalViewCard({
+    required this.selectedView,
     required this.focusDate,
-    required this.creatingSlot,
-    required this.controllerForSlot,
-    required this.onSubmit,
+    required this.goals,
+    required this.onOpenDetail,
+    required this.onCreateGoal,
+    required this.onReschedule,
+    super.key,
   });
 
-  final GoalViewMode viewMode;
+  final GoalViewMode selectedView;
   final DateTime focusDate;
-  final String? creatingSlot;
-  final TextEditingController Function(String key) controllerForSlot;
-  final ValueChanged<String> onSubmit;
+  final List<GoalOverview> goals;
+  final ValueChanged<GoalsTableData> onOpenDetail;
+  final Future<void> Function(String title, GoalType goalType, DateTime slotDate) onCreateGoal;
+  final Future<void> Function(GoalsTableData goal, DateTime newStartDate) onReschedule;
 
-  List<_TimeSlot> get _slots {
-    switch (viewMode) {
-      case GoalViewMode.day:
-        return List.generate(
-          24,
-          (h) => _TimeSlot(
-            key: 'h$h',
-            label: '${h.toString().padLeft(2, '0')}:00',
-          ),
-        );
-      case GoalViewMode.week:
-        final monday = focusDate.subtract(
-          Duration(days: focusDate.weekday - 1),
-        );
-        const weekdays = <String>['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-        return List.generate(
-          7,
-          (i) {
-            final d = monday.add(Duration(days: i));
-            return _TimeSlot(
-              key: 'w$i',
-              label: '${weekdays[i]}\n${d.month}/${d.day}',
-            );
-          },
-        );
-      case GoalViewMode.month:
-        // weeks of the month
-        final firstDay = DateTime(focusDate.year, focusDate.month, 1);
-        final lastDay = DateTime(focusDate.year, focusDate.month + 1, 0);
-        final slots = <_TimeSlot>[];
-        var weekStart = firstDay;
-        var weekNum = 1;
-        while (weekStart.isBefore(lastDay) ||
-            weekStart.isAtSameMomentAs(lastDay)) {
-          final weekEnd = weekStart.add(const Duration(days: 6));
-          final end = weekEnd.isAfter(lastDay) ? lastDay : weekEnd;
-          slots.add(
-            _TimeSlot(
-              key: 'mw$weekNum',
-              label: '第$weekNum周\n${weekStart.day}—${end.day}日',
-            ),
-          );
-          weekStart = weekStart.add(const Duration(days: 7));
-          weekNum++;
-        }
-        return slots;
-      case GoalViewMode.year:
-        const months = <String>[
-          '1月', '2月', '3月', '4月', '5月', '6月',
-          '7月', '8月', '9月', '10月', '11月', '12月',
-        ];
-        return List.generate(
-          12,
-          (i) => _TimeSlot(key: 'ym${i + 1}', label: months[i]),
-        );
+  @override
+  State<GoalViewCard> createState() => _GoalViewCardState();
+}
+
+class _GoalViewCardState extends State<GoalViewCard> {
+  // Active slot key (only one slot open at a time)
+  String? _activeSlot;
+  final TextEditingController _inputController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void didUpdateWidget(GoalViewCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If view or date changed, close any open slot
+    if (oldWidget.selectedView != widget.selectedView ||
+        oldWidget.focusDate != widget.focusDate) {
+      _activeSlot = null;
+      _inputController.clear();
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final slots = _slots;
-    final now = DateTime.now();
+  void dispose() {
+    _inputController.dispose();
+    super.dispose();
+  }
+
+  void _activateSlot(String key) {
+    setState(() {
+      _activeSlot = key;
+      _inputController.clear();
+    });
+  }
+
+  Future<void> _submit(GoalType goalType, DateTime slotDate) async {
+    final title = _inputController.text.trim();
+    if (title.isEmpty || _submitting) return;
+    setState(() => _submitting = true);
+    try {
+      await widget.onCreateGoal(title, goalType, slotDate);
+      if (mounted) {
+        _inputController.clear();
+        setState(() => _activeSlot = null);
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _cancelSlot() {
+    setState(() {
+      _activeSlot = null;
+      _inputController.clear();
+    });
+  }
+
+  /// Inline add row shown at the bottom of each slot's content column.
+  Widget _buildInlineAdd(BuildContext context, String slotKey, GoalType goalType, DateTime slotDate) {
+    final isActive = _activeSlot == slotKey;
     final theme = Theme.of(context);
 
-    return Card(
-      child: Column(
-        children: slots.map((slot) {
-          final isCreating = creatingSlot == slot.key;
-          final controller = controllerForSlot(slot.key);
-          // highlight current slot
-          final isCurrent = _isCurrentSlot(slot, now);
+    if (!isActive) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _activateSlot(slotKey),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            '+ 点击添加目标',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.outline.withValues(alpha: 0.45),
+            ),
+          ),
+        ),
+      );
+    }
 
-          return Container(
-            decoration: isCurrent
-                ? BoxDecoration(
-                    color: theme.colorScheme.primaryContainer.withValues(
-                      alpha: 0.3,
-                    ),
-                  )
-                : null,
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  // Left: time label
-                  Container(
-                    width: 52,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 10,
-                      horizontal: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        right: BorderSide(
-                          color: theme.dividerColor,
-                          width: 1,
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: TextField(
+              controller: _inputController,
+              autofocus: true,
+              enabled: !_submitting,
+              decoration: InputDecoration(
+                hintText: '输入目标名称，回车确认',
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                border: const OutlineInputBorder(),
+                suffixIcon: _submitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: Padding(
+                          padding: EdgeInsets.all(10),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : null,
+              ),
+              onSubmitted: (_) => _submit(goalType, slotDate),
+            ),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            onPressed: _submitting ? null : () => _submit(goalType, slotDate),
+            icon: const Icon(Icons.check, size: 18),
+            visualDensity: VisualDensity.compact,
+            tooltip: '确认',
+          ),
+          IconButton(
+            onPressed: _cancelSlot,
+            icon: const Icon(Icons.close, size: 18),
+            visualDensity: VisualDensity.compact,
+            tooltip: '取消',
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final goalList = widget.goals.map((o) => o.goal).toList();
+    final Widget content;
+    switch (widget.selectedView) {
+      case GoalViewMode.day:
+        content = _DayGoalView(
+          focusDate: widget.focusDate,
+          goals: goalList,
+          onOpenDetail: widget.onOpenDetail,
+          buildInlineAdd: _buildInlineAdd,
+          onReschedule: widget.onReschedule,
+        );
+      case GoalViewMode.week:
+        content = _WeekGoalView(
+          focusDate: widget.focusDate,
+          goals: goalList,
+          onOpenDetail: widget.onOpenDetail,
+          buildInlineAdd: _buildInlineAdd,
+          onReschedule: widget.onReschedule,
+        );
+      case GoalViewMode.month:
+        content = _MonthGoalView(
+          focusDate: widget.focusDate,
+          goals: goalList,
+          onOpenDetail: widget.onOpenDetail,
+          buildInlineAdd: _buildInlineAdd,
+          onReschedule: widget.onReschedule,
+        );
+      case GoalViewMode.year:
+        content = _YearGoalView(
+          focusDate: widget.focusDate,
+          goals: goalList,
+          onOpenDetail: widget.onOpenDetail,
+          buildInlineAdd: _buildInlineAdd,
+          onReschedule: widget.onReschedule,
+        );
+    }
+    return Card(
+      child: Padding(padding: const EdgeInsets.all(18), child: content),
+    );
+  }
+}
+
+// ─── Day view ─────────────────────────────────────────────────────────────────
+
+class _DayGoalView extends StatelessWidget {
+  const _DayGoalView({
+    required this.focusDate,
+    required this.goals,
+    required this.onOpenDetail,
+    required this.buildInlineAdd,
+    required this.onReschedule,
+  });
+
+  final DateTime focusDate;
+  final List<GoalsTableData> goals;
+  final ValueChanged<GoalsTableData> onOpenDetail;
+  final Widget Function(BuildContext, String slotKey, GoalType, DateTime slotDate) buildInlineAdd;
+  final Future<void> Function(GoalsTableData goal, DateTime newStartDate) onReschedule;
+
+  @override
+  Widget build(BuildContext context) {
+    final grouped = <int, List<GoalsTableData>>{};
+    for (final g in goals.where((g) => sameDate(_goalEffectiveDate(g), focusDate))) {
+      grouped
+          .putIfAbsent(_goalEffectiveDate(g).hour, () => <GoalsTableData>[])
+          .add(g);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List<Widget>.generate(24, (hour) {
+        final items = grouped[hour] ?? const <GoalsTableData>[];
+        final slotDate = DateTime(focusDate.year, focusDate.month, focusDate.day, hour);
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0x11000000))),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              SizedBox(
+                width: 52,
+                child: Text(
+                  '${hour.toString().padLeft(2, '0')}:00',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    ...items.map(
+                      (g) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: GoalSlotBlock(
+                          goal: g,
+                          onTap: () => onOpenDetail(g),
+                          onReschedule: (newDate) => onReschedule(g, newDate),
+                          rescheduleMode: _RescheduleMode.hour,
+                          focusDate: focusDate,
                         ),
                       ),
                     ),
-                    child: Text(
-                      slot.label,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: isCurrent
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.outline,
-                        fontWeight: isCurrent ? FontWeight.w700 : null,
-                      ),
-                    ),
-                  ),
-                  // Right: inline add only
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      child: isCreating
-                          ? const SizedBox(
-                              height: 32,
-                              child: Center(
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : TextField(
-                              controller: controller,
-                              enabled: creatingSlot == null,
-                              decoration: const InputDecoration(
-                                hintText: '添加目标…',
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 7,
-                                ),
-                                border: OutlineInputBorder(),
-                              ),
-                              onSubmitted: (_) => onSubmit(slot.key),
-                            ),
-                    ),
-                  ),
-                ],
+                    buildInlineAdd(context, 'day_h$hour', GoalType.stage, slotDate),
+                  ],
+                ),
               ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ─── Week view ────────────────────────────────────────────────────────────────
+
+class _WeekGoalView extends StatelessWidget {
+  const _WeekGoalView({
+    required this.focusDate,
+    required this.goals,
+    required this.onOpenDetail,
+    required this.buildInlineAdd,
+    required this.onReschedule,
+  });
+
+  final DateTime focusDate;
+  final List<GoalsTableData> goals;
+  final ValueChanged<GoalsTableData> onOpenDetail;
+  final Widget Function(BuildContext, String slotKey, GoalType, DateTime slotDate) buildInlineAdd;
+  final Future<void> Function(GoalsTableData goal, DateTime newStartDate) onReschedule;
+
+  @override
+  Widget build(BuildContext context) {
+    final weekStart = startOfWeek(focusDate);
+
+    return Column(
+      children: List<Widget>.generate(7, (index) {
+        final day = weekStart.add(Duration(days: index));
+        final dayGoals = goals
+            .where((g) => sameDate(_goalEffectiveDate(g), day))
+            .toList()
+          ..sort((a, b) => _goalEffectiveDate(a).compareTo(_goalEffectiveDate(b)));
+        final slotKey = 'week_d$index';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F6F1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SizedBox(
+                  width: 72,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        weekdayShort(day.weekday),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('M月d日').format(day),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      ...dayGoals.map(
+                        (g) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: GoalSlotBlock(
+                            goal: g,
+                            onTap: () => onOpenDetail(g),
+                            onReschedule: (newDate) => onReschedule(g, newDate),
+                            rescheduleMode: _RescheduleMode.day,
+                            focusDate: focusDate,
+                          ),
+                        ),
+                      ),
+                      buildInlineAdd(context, slotKey, GoalType.stage, day),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ─── Month view ───────────────────────────────────────────────────────────────
+
+class _MonthGoalView extends StatelessWidget {
+  const _MonthGoalView({
+    required this.focusDate,
+    required this.goals,
+    required this.onOpenDetail,
+    required this.buildInlineAdd,
+    required this.onReschedule,
+  });
+
+  final DateTime focusDate;
+  final List<GoalsTableData> goals;
+  final ValueChanged<GoalsTableData> onOpenDetail;
+  final Widget Function(BuildContext, String slotKey, GoalType, DateTime slotDate) buildInlineAdd;
+  final Future<void> Function(GoalsTableData goal, DateTime newStartDate) onReschedule;
+
+  @override
+  Widget build(BuildContext context) {
+    final monthStart = DateTime(focusDate.year, focusDate.month, 1);
+    final gridStart = monthStart.subtract(Duration(days: monthStart.weekday - 1));
+    final theme = Theme.of(context);
+
+    return Column(
+      children: List<Widget>.generate(6, (weekIndex) {
+        final weekStart = gridStart.add(Duration(days: weekIndex * 7));
+        final weekEnd = weekStart.add(const Duration(days: 7));
+
+        final hasCurrentMonth =
+            List.generate(7, (i) => weekStart.add(Duration(days: i)))
+                .any((d) => d.month == focusDate.month);
+        if (!hasCurrentMonth) return const SizedBox.shrink();
+
+        final weekGoals = goals.where((g) {
+          final d = _goalEffectiveDate(g);
+          return !d.isBefore(weekStart) && d.isBefore(weekEnd);
+        }).toList()
+          ..sort((a, b) => _goalEffectiveDate(a).compareTo(_goalEffectiveDate(b)));
+
+        final weekLabel =
+            '${DateFormat('M/d').format(weekStart)}–${DateFormat('M/d').format(weekEnd.subtract(const Duration(days: 1)))}';
+        final slotKey = 'month_w$weekIndex';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F6F1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SizedBox(
+                  width: 72,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        '第${weekIndex + 1}周',
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        weekLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      ...weekGoals.take(3).map(
+                        (g) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: GoalSlotBlock(
+                            goal: g,
+                            onTap: () => onOpenDetail(g),
+                            onReschedule: (newDate) => onReschedule(g, newDate),
+                            rescheduleMode: _RescheduleMode.week,
+                            focusDate: focusDate,
+                          ),
+                        ),
+                      ),
+                      if (weekGoals.length > 3)
+                        Text(
+                          '还有 ${weekGoals.length - 3} 个...',
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                        ),
+                      buildInlineAdd(context, slotKey, GoalType.monthly, weekStart),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ─── Year view ────────────────────────────────────────────────────────────────
+
+class _YearGoalView extends StatelessWidget {
+  const _YearGoalView({
+    required this.focusDate,
+    required this.goals,
+    required this.onOpenDetail,
+    required this.buildInlineAdd,
+    required this.onReschedule,
+  });
+
+  final DateTime focusDate;
+  final List<GoalsTableData> goals;
+  final ValueChanged<GoalsTableData> onOpenDetail;
+  final Widget Function(BuildContext, String slotKey, GoalType, DateTime slotDate) buildInlineAdd;
+  final Future<void> Function(GoalsTableData goal, DateTime newStartDate) onReschedule;
+
+  @override
+  Widget build(BuildContext context) {
+    final yearGoals = goals
+        .where((g) => _goalEffectiveDate(g).year == focusDate.year)
+        .toList();
+    final theme = Theme.of(context);
+
+    return Column(
+      children: List<Widget>.generate(12, (index) {
+        final month = index + 1;
+        final monthGoals = yearGoals
+            .where((g) => _goalEffectiveDate(g).month == month)
+            .toList()
+          ..sort((a, b) => _goalEffectiveDate(a).compareTo(_goalEffectiveDate(b)));
+        final slotKey = 'year_m$month';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F6F1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    '$month月',
+                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      ...monthGoals.take(3).map(
+                        (g) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: GoalSlotBlock(
+                            goal: g,
+                            onTap: () => onOpenDetail(g),
+                            onReschedule: (newDate) => onReschedule(g, newDate),
+                            rescheduleMode: _RescheduleMode.month,
+                            focusDate: focusDate,
+                          ),
+                        ),
+                      ),
+                      if (monthGoals.length > 3)
+                        Text(
+                          '还有 ${monthGoals.length - 3} 个...',
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                        ),
+                      buildInlineAdd(context, slotKey, GoalType.yearly, DateTime(focusDate.year, month, 1)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ─── Reschedule mode enum ─────────────────────────────────────────────────────
+
+enum _RescheduleMode { hour, day, week, month }
+
+// ─── GoalSlotBlock: single goal item in the day-view timeline ─────────────────
+
+class GoalSlotBlock extends StatelessWidget {
+  const GoalSlotBlock({
+    required this.goal,
+    required this.onTap,
+    required this.onReschedule,
+    required this.rescheduleMode,
+    required this.focusDate,
+    super.key,
+  });
+
+  final GoalsTableData goal;
+  final VoidCallback onTap;
+  final void Function(DateTime newDate) onReschedule;
+  final _RescheduleMode rescheduleMode;
+  final DateTime focusDate;
+
+  Future<void> _showRescheduleDialog(BuildContext context) async {
+    switch (rescheduleMode) {
+      case _RescheduleMode.hour:
+        await _pickHour(context);
+      case _RescheduleMode.day:
+        await _pickDay(context);
+      case _RescheduleMode.week:
+        await _pickWeek(context);
+      case _RescheduleMode.month:
+        await _pickMonth(context);
+    }
+  }
+
+  Future<void> _pickHour(BuildContext context) async {
+    final current = _goalEffectiveDate(goal);
+    final hours = List<int>.generate(24, (i) => i);
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('调整到时段'),
+        children: hours.map((h) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(ctx, h),
+          child: Text('${h.toString().padLeft(2, '0')}:00',
+            style: TextStyle(
+              fontWeight: current.hour == h ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        )).toList(),
+      ),
+    );
+    if (picked != null) {
+      final newDate = DateTime(current.year, current.month, current.day, picked);
+      onReschedule(newDate);
+    }
+  }
+
+  Future<void> _pickDay(BuildContext context) async {
+    final weekStart = startOfWeek(focusDate);
+    final days = List<DateTime>.generate(7, (i) => weekStart.add(Duration(days: i)));
+    final current = _goalEffectiveDate(goal);
+    final picked = await showDialog<DateTime>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('调整到星期'),
+        children: days.map((d) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(ctx, d),
+          child: Text('${weekdayShort(d.weekday)} ${DateFormat('M月d日').format(d)}',
+            style: TextStyle(
+              fontWeight: sameDate(d, current) ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        )).toList(),
+      ),
+    );
+    if (picked != null) {
+      final newDate = DateTime(picked.year, picked.month, picked.day, current.hour);
+      onReschedule(newDate);
+    }
+  }
+
+  Future<void> _pickWeek(BuildContext context) async {
+    final monthStart = DateTime(focusDate.year, focusDate.month, 1);
+    final gridStart = monthStart.subtract(Duration(days: monthStart.weekday - 1));
+    final current = _goalEffectiveDate(goal);
+    final weeks = <DateTime>[];
+    for (var i = 0; i < 6; i++) {
+      final ws = gridStart.add(Duration(days: i * 7));
+      final hasMonth = List.generate(7, (j) => ws.add(Duration(days: j)))
+          .any((d) => d.month == focusDate.month);
+      if (hasMonth) weeks.add(ws);
+    }
+    final picked = await showDialog<DateTime>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('调整到周'),
+        children: weeks.asMap().entries.map((e) {
+          final ws = e.value;
+          final we = ws.add(const Duration(days: 6));
+          final label = '${DateFormat('M/d').format(ws)}–${DateFormat('M/d').format(we)}';
+          final isCurrent = !current.isBefore(ws) && current.isBefore(ws.add(const Duration(days: 7)));
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, ws),
+            child: Text(label,
+              style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal),
             ),
           );
         }).toList(),
       ),
     );
-  }
-
-  bool _isCurrentSlot(_TimeSlot slot, DateTime now) {
-    switch (viewMode) {
-      case GoalViewMode.day:
-        return focusDate.year == now.year &&
-            focusDate.month == now.month &&
-            focusDate.day == now.day &&
-            slot.key == 'h${now.hour}';
-      case GoalViewMode.week:
-        final monday = focusDate.subtract(
-          Duration(days: focusDate.weekday - 1),
-        );
-        final weekContainsToday = monday.year == now.year ||
-            monday.month == now.month ||
-            monday.day <= now.day;
-        if (!weekContainsToday) return false;
-        final todayWeekday = now.weekday - 1; // 0-based
-        return slot.key == 'w$todayWeekday';
-      case GoalViewMode.month:
-        if (focusDate.year != now.year || focusDate.month != now.month) {
-          return false;
-        }
-        final firstDay = DateTime(now.year, now.month, 1);
-        final dayOffset = now.day - firstDay.day;
-        final weekNum = (dayOffset ~/ 7) + 1;
-        return slot.key == 'mw$weekNum';
-      case GoalViewMode.year:
-        return focusDate.year == now.year && slot.key == 'ym${now.month}';
+    if (picked != null) {
+      onReschedule(picked);
     }
   }
+
+  Future<void> _pickMonth(BuildContext context) async {
+    final current = _goalEffectiveDate(goal);
+    final months = List<int>.generate(12, (i) => i + 1);
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('调整到月份'),
+        children: months.map((m) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(ctx, m),
+          child: Text('$m月',
+            style: TextStyle(
+              fontWeight: current.month == m ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        )).toList(),
+      ),
+    );
+    if (picked != null) {
+      final newDate = DateTime(focusDate.year, picked, 1);
+      onReschedule(newDate);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFE8F2EF),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        onLongPress: () => _showRescheduleDialog(context),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      goal.title,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      GoalStatus.fromValue(goal.status).label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.flag_outlined,
+                size: 16,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _TimeSlot {
-  const _TimeSlot({required this.key, required this.label});
-
-  final String key;
-  final String label;
-}
+// ─── Summary card ─────────────────────────────────────────────────────────────
 
 class _GoalSummaryCard extends StatelessWidget {
   const _GoalSummaryCard({required this.summary});
@@ -1079,165 +1479,6 @@ class _GoalMetric extends StatelessWidget {
         const SizedBox(height: 6),
         Text(label),
       ],
-    );
-  }
-}
-
-class _GoalCreateCard extends StatelessWidget {
-  const _GoalCreateCard({
-    required this.titleController,
-    required this.targetController,
-    required this.unitController,
-    required this.selectedType,
-    required this.selectedProgressMode,
-    required this.todoWeight,
-    required this.todoUnitWeight,
-    required this.habitUnitWeight,
-    required this.selectedPriority,
-    required this.isCreating,
-    required this.onTypeChanged,
-    required this.onProgressModeChanged,
-    required this.onTodoWeightChanged,
-    required this.onTodoUnitWeightChanged,
-    required this.onHabitUnitWeightChanged,
-    required this.onPriorityChanged,
-    required this.onSubmit,
-  });
-
-  final TextEditingController titleController;
-  final TextEditingController targetController;
-  final TextEditingController unitController;
-  final GoalType selectedType;
-  final GoalProgressMode selectedProgressMode;
-  final double todoWeight;
-  final double todoUnitWeight;
-  final double habitUnitWeight;
-  final TodoPriority selectedPriority;
-  final bool isCreating;
-  final ValueChanged<GoalType> onTypeChanged;
-  final ValueChanged<GoalProgressMode> onProgressModeChanged;
-  final ValueChanged<double> onTodoWeightChanged;
-  final ValueChanged<double> onTodoUnitWeightChanged;
-  final ValueChanged<double> onHabitUnitWeightChanged;
-  final ValueChanged<TodoPriority> onPriorityChanged;
-  final Future<void> Function() onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('快速新增目标', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            TextField(
-              controller: titleController,
-              enabled: !isCreating,
-              decoration: const InputDecoration(
-                labelText: '标题',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _EnumChoiceGroup<GoalType>(
-              title: '目标类型',
-              value: selectedType,
-              values: GoalType.values,
-              labelBuilder: (item) => item.label,
-              onChanged: onTypeChanged,
-            ),
-            _EnumChoiceGroup<TodoPriority>(
-              title: '优先级（四象限）',
-              value: selectedPriority,
-              values: TodoPriority.values,
-              labelBuilder: (item) => item.label,
-              onChanged: onPriorityChanged,
-            ),
-            _EnumChoiceGroup<GoalProgressMode>(
-              title: '进度规则',
-              value: selectedProgressMode,
-              values: GoalProgressMode.values,
-              labelBuilder: (item) => item.label,
-              onChanged: onProgressModeChanged,
-            ),
-            if (selectedProgressMode ==
-                GoalProgressMode.weightedMixed) ...<Widget>[
-              Text(
-                '组权重：待办 ${(todoWeight * 100).round()}% / 习惯 ${((1 - todoWeight) * 100).round()}%',
-              ),
-              Slider(
-                value: todoWeight,
-                min: 0,
-                max: 1,
-                divisions: 10,
-                onChanged: isCreating ? null : onTodoWeightChanged,
-              ),
-              Text('待办单次完成权重 ${todoUnitWeight.toStringAsFixed(1)}'),
-              Slider(
-                value: todoUnitWeight,
-                min: 0.1,
-                max: 2,
-                divisions: 19,
-                onChanged: isCreating ? null : onTodoUnitWeightChanged,
-              ),
-              Text('习惯单次打卡权重 ${habitUnitWeight.toStringAsFixed(1)}'),
-              Slider(
-                value: habitUnitWeight,
-                min: 0.1,
-                max: 2,
-                divisions: 19,
-                onChanged: isCreating ? null : onHabitUnitWeightChanged,
-              ),
-              const SizedBox(height: 12),
-            ],
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: TextField(
-                    controller: targetController,
-                    enabled: !isCreating,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: '目标值',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: unitController,
-                    enabled: !isCreating,
-                    decoration: const InputDecoration(
-                      labelText: '单位',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: isCreating ? null : onSubmit,
-                icon: isCreating
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add),
-                label: Text(isCreating ? '保存中' : '新增目标'),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1452,3 +1693,5 @@ class _GoalErrorCard extends StatelessWidget {
     );
   }
 }
+
+// ─── Empty / error states ─────────────────────────────────────────────────────

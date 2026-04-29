@@ -191,6 +191,7 @@ class GoalRepository {
     required double? progressTarget,
     required String? unit,
     TodoPriority priority = TodoPriority.notUrgentImportant,
+    DateTime? startDate,
   }) async {
     final now = DateTime.now().toUtc();
     final goalId = _uuid.v4();
@@ -210,6 +211,7 @@ class GoalRepository {
       progressValue: const Value(0.0),
       progressTarget: Value(progressTarget),
       unit: Value(unit),
+      startDate: Value(startDate?.toUtc()),
       createdAt: Value(now),
       updatedAt: Value(now),
       syncStatus: const Value('pending_create'),
@@ -318,8 +320,40 @@ class GoalRepository {
     });
   }
 
-  Future<void> setGoalPaused(GoalsTableData goal, bool paused) {
-    return _updateGoalStatus(
+  Future<void> rescheduleGoal(GoalsTableData goal, DateTime newStartDate) async {
+    final now = DateTime.now().toUtc();
+    final nextVersion = goal.localVersion + 1;
+
+    await _database.transaction(() async {
+      await (_database.update(_database.goalsTable)
+            ..where(
+              (tbl) =>
+                  tbl.id.equals(goal.id) & tbl.userId.equals(_workspace.userId),
+            ))
+          .write(
+        GoalsTableCompanion(
+          startDate: Value(newStartDate.toUtc()),
+          updatedAt: Value(now),
+          syncStatus: const Value('pending_update'),
+          localVersion: Value(nextVersion),
+          deviceId: Value(_workspace.deviceId),
+        ),
+      );
+
+      await _enqueueSync(
+        entityId: goal.id,
+        operation: 'update',
+        payload: <String, Object?>{
+          'id': goal.id,
+          'start_date': newStartDate.toUtc().toIso8601String(),
+          'local_version': nextVersion,
+          'updated_at': now.toIso8601String(),
+        },
+      );
+    });
+  }
+
+  Future<void> setGoalPaused(GoalsTableData goal, bool paused) {    return _updateGoalStatus(
       goal: goal,
       status: paused ? GoalStatus.paused : GoalStatus.active,
       action: paused ? 'paused' : 'resumed',

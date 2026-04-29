@@ -93,6 +93,7 @@ class GoalActions {
     required double? progressTarget,
     required String? unit,
     TodoPriority priority = TodoPriority.notUrgentImportant,
+    DateTime? startDate,
   }) {
     return _repository.createGoal(
       title: title,
@@ -105,6 +106,7 @@ class GoalActions {
       progressTarget: progressTarget,
       unit: unit,
       priority: priority,
+      startDate: startDate,
     );
   }
 
@@ -142,6 +144,10 @@ class GoalActions {
 
   Future<void> setGoalPaused(GoalsTableData goal, bool paused) {
     return _repository.setGoalPaused(goal, paused);
+  }
+
+  Future<void> rescheduleGoal(GoalsTableData goal, DateTime newStartDate) {
+    return _repository.rescheduleGoal(goal, newStartDate);
   }
 
   Future<void> archiveGoal(GoalsTableData goal) {

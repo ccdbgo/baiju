@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:baiju_app/core/database/app_database.dart';
+import 'package:baiju_app/core/notifications/reminder_scheduler.dart';
 import 'package:baiju_app/features/todo/domain/todo_filter.dart';
 import 'package:baiju_app/features/user/domain/user_models.dart';
 import 'package:drift/drift.dart';
@@ -11,12 +12,15 @@ class TodoRepository {
     this._database, {
     UserWorkspace? workspace,
     Uuid? uuid,
+    ReminderScheduler? reminderScheduler,
   })  : _workspace = workspace ?? const UserWorkspace.local(),
-        _uuid = uuid ?? const Uuid();
+        _uuid = uuid ?? const Uuid(),
+        _reminderScheduler = reminderScheduler ?? const NoopReminderScheduler();
 
   final AppDatabase _database;
   final UserWorkspace _workspace;
   final Uuid _uuid;
+  final ReminderScheduler _reminderScheduler;
 
   Stream<List<TodoSubtasksTableData>> watchTodoSubtasks(String todoId) {
     final query = _database.select(_database.todoSubtasksTable)
@@ -122,6 +126,15 @@ class TodoRepository {
         occurredAt: now,
       );
     });
+
+    if (resolvedDueAt != null) {
+      final inserted = await (_database.select(_database.todosTable)
+            ..where((tbl) => tbl.id.equals(todoId)))
+          .getSingleOrNull();
+      if (inserted != null) {
+        await _reminderScheduler.syncTodoReminder(inserted);
+      }
+    }
   }
 
   Future<String> createTodoFromSchedule({
@@ -314,6 +327,10 @@ class TodoRepository {
         occurredAt: now,
       );
     });
+
+    if (completed) {
+      await _reminderScheduler.cancelTodoReminder(todo.id);
+    }
   }
 
   Future<void> markTodoScheduled({
@@ -411,6 +428,13 @@ class TodoRepository {
         occurredAt: now,
       );
     });
+
+    final updated = await (_database.select(_database.todosTable)
+          ..where((tbl) => tbl.id.equals(todo.id)))
+        .getSingleOrNull();
+    if (updated != null) {
+      await _reminderScheduler.syncTodoReminder(updated);
+    }
   }
 
   Future<void> archiveTodo(TodosTableData todo) async {
@@ -452,6 +476,8 @@ class TodoRepository {
         occurredAt: now,
       );
     });
+
+    await _reminderScheduler.cancelTodoReminder(todo.id);
   }
 
   Future<void> deleteTodo(TodosTableData todo) async {
@@ -493,6 +519,8 @@ class TodoRepository {
         occurredAt: now,
       );
     });
+
+    await _reminderScheduler.cancelTodoReminder(todo.id);
   }
 
   Future<int> rolloverOverdueTodosToToday() async {

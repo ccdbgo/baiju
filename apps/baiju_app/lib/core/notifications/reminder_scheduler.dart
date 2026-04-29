@@ -8,14 +8,19 @@ abstract class ReminderScheduler {
 
   Future<void> syncHabitReminder(HabitsTableData habit);
 
+  Future<void> syncTodoReminder(TodosTableData todo);
+
   Future<void> syncAllReminders({
     required Iterable<SchedulesTableData> schedules,
     required Iterable<HabitsTableData> habits,
+    required Iterable<TodosTableData> todos,
   });
 
   Future<void> cancelScheduleReminder(String scheduleId);
 
   Future<void> cancelHabitReminder(String habitId);
+
+  Future<void> cancelTodoReminder(String todoId);
 
   Future<void> cancelAllManagedReminders();
 
@@ -35,9 +40,13 @@ class NoopReminderScheduler implements ReminderScheduler {
   Future<void> syncHabitReminder(HabitsTableData habit) async {}
 
   @override
+  Future<void> syncTodoReminder(TodosTableData todo) async {}
+
+  @override
   Future<void> syncAllReminders({
     required Iterable<SchedulesTableData> schedules,
     required Iterable<HabitsTableData> habits,
+    required Iterable<TodosTableData> todos,
   }) async {}
 
   @override
@@ -45,6 +54,9 @@ class NoopReminderScheduler implements ReminderScheduler {
 
   @override
   Future<void> cancelHabitReminder(String habitId) async {}
+
+  @override
+  Future<void> cancelTodoReminder(String todoId) async {}
 
   @override
   Future<void> cancelAllManagedReminders() async {}

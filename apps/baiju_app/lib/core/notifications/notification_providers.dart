@@ -49,10 +49,21 @@ class ReminderSyncController {
                 tbl.status.equals('active'),
           ))
         .get();
+    final todos = await (_database.select(_database.todosTable)
+          ..where(
+            (tbl) =>
+                tbl.deletedAt.isNull() &
+                tbl.userId.equals(_userId) &
+                tbl.status.isNotValue('completed') &
+                tbl.status.isNotValue('archived') &
+                tbl.dueAt.isNotNull(),
+          ))
+        .get();
 
     await _scheduler.syncAllReminders(
       schedules: schedules,
       habits: habits,
+      todos: todos,
     );
   }
 

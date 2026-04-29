@@ -129,6 +129,7 @@ class AppNotificationService implements ReminderScheduler {
   Future<void> syncAllReminders({
     required Iterable<SchedulesTableData> schedules,
     required Iterable<HabitsTableData> habits,
+    required Iterable<TodosTableData> todos,
   }) async {
     await cancelAllManagedReminders();
 
@@ -142,6 +143,48 @@ class AppNotificationService implements ReminderScheduler {
     for (final habit in habits) {
       await syncHabitReminder(habit);
     }
+    for (final todo in todos) {
+      await syncTodoReminder(todo);
+    }
+  }
+
+  @override
+  Future<void> syncTodoReminder(TodosTableData todo) async {
+    await cancelTodoReminder(todo.id);
+
+    if (!_initialized) {
+      return;
+    }
+
+    final dueAt = todo.dueAt;
+    if (dueAt == null || todo.status == 'completed' || todo.status == 'archived') {
+      return;
+    }
+
+    // Default: remind 30 minutes before due time
+    final reminderAt = dueAt.subtract(const Duration(minutes: 30));
+    if (!reminderAt.isAfter(DateTime.now().toUtc())) {
+      return;
+    }
+
+    await _plugin.zonedSchedule(
+      id: _notificationId('todo', todo.id),
+      title: '待办提醒',
+      body: todo.title,
+      scheduledDate: tz.TZDateTime.from(reminderAt, tz.UTC),
+      notificationDetails: _defaultDetails(
+        channelId: 'baiju_todo',
+        channelName: '待办提醒',
+        channelDescription: '白驹的待办提醒通知',
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: 'todo:${todo.id}',
+    );
+  }
+
+  @override
+  Future<void> cancelTodoReminder(String todoId) {
+    return _plugin.cancel(id: _notificationId('todo', todoId));
   }
 
   @override

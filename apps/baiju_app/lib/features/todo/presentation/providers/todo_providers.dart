@@ -1,5 +1,6 @@
 import 'package:baiju_app/core/database/app_database.dart';
 import 'package:baiju_app/core/database/database_provider.dart';
+import 'package:baiju_app/core/notifications/notification_providers.dart';
 import 'package:baiju_app/features/schedule/domain/schedule_filter.dart';
 import 'package:baiju_app/features/schedule/infrastructure/schedule_repository.dart';
 import 'package:baiju_app/features/schedule/presentation/providers/schedule_providers.dart';
@@ -12,7 +13,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final todoRepositoryProvider = Provider<TodoRepository>((ref) {
   final database = ref.watch(appDatabaseProvider);
   final workspace = ref.watch(currentUserWorkspaceProvider);
-  return TodoRepository(database, workspace: workspace);
+  final reminderScheduler = ref.watch(reminderSchedulerProvider);
+  return TodoRepository(database, workspace: workspace, reminderScheduler: reminderScheduler);
 });
 
 final selectedTodoFilterProvider =
