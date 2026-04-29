@@ -207,6 +207,26 @@ class AppNotificationService implements ReminderScheduler {
     return _plugin.pendingNotificationRequests();
   }
 
+  Future<void> showImmediate({
+    required String id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    if (!_initialized) return;
+    await _plugin.show(
+      id: id.hashCode & 0x7fffffff,
+      title: title,
+      body: body,
+      notificationDetails: _defaultDetails(
+        channelId: 'baiju_reminder',
+        channelName: '提醒',
+        channelDescription: '白驹的即时提醒通知',
+      ),
+      payload: payload,
+    );
+  }
+
   Future<void> showWeatherAlert(WeatherInfo info) async {
     if (!_initialized || !info.hasSevereAlert) return;
     await _plugin.show(

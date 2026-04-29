@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:baiju_app/core/notifications/notification_providers.dart';
+import 'package:baiju_app/core/notifications/reminder_ticker.dart';
 import 'package:baiju_app/core/sync/sync_providers.dart';
 import 'package:baiju_app/features/user/domain/user_models.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_preferences_providers.dart';
@@ -30,10 +31,12 @@ class _ManagedReminderScopeState extends ConsumerState<ManagedReminderScope>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_syncManagedReminders());
+    ref.read(reminderTickerProvider).start();
   }
 
   @override
   void dispose() {
+    ref.read(reminderTickerProvider).stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -42,6 +45,10 @@ class _ManagedReminderScopeState extends ConsumerState<ManagedReminderScope>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_syncManagedReminders());
+      ref.read(reminderTickerProvider).start();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      ref.read(reminderTickerProvider).stop();
     }
   }
 
