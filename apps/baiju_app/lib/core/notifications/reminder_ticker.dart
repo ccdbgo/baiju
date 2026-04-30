@@ -46,6 +46,7 @@ class ReminderTicker {
 
     await _checkSchedules(windowStart, windowEnd, now);
     await _checkTodos(windowStart, windowEnd);
+    await _checkHabits(windowStart, windowEnd);
   }
 
   Future<void> _notify(String key, String title, String body) async {
@@ -103,6 +104,48 @@ class ReminderTicker {
       final reminderAt = dueAt.subtract(const Duration(minutes: 30));
       if (reminderAt.isAfter(windowStart) && reminderAt.isBefore(windowEnd)) {
         await _notify('todo:${t.id}', '待办提醒', t.title);
+      }
+    }
+  }
+
+  Future<void> _checkHabits(DateTime windowStart, DateTime windowEnd) async {
+    final habits = await (_database.select(_database.habitsTable)
+          ..where(
+            (tbl) =>
+                tbl.deletedAt.isNull() &
+                tbl.userId.equals(_userId) &
+                tbl.status.equals('active') &
+                tbl.reminderTime.isNotNull(),
+          ))
+        .get();
+
+    final nowLocal = DateTime.now();
+    final todayStr =
+        '${nowLocal.year.toString().padLeft(4, '0')}-'
+        '${nowLocal.month.toString().padLeft(2, '0')}-'
+        '${nowLocal.day.toString().padLeft(2, '0')}';
+
+    for (final h in habits) {
+      final reminderTime = h.reminderTime;
+      if (reminderTime == null || reminderTime.isEmpty) continue;
+      final parts = reminderTime.split(':');
+      if (parts.length != 2) continue;
+      final hour = int.tryParse(parts[0]);
+      final minute = int.tryParse(parts[1]);
+      if (hour == null || minute == null) continue;
+
+      final reminderLocal = DateTime(
+        nowLocal.year,
+        nowLocal.month,
+        nowLocal.day,
+        hour,
+        minute,
+      );
+      final reminderUtc = reminderLocal.toUtc();
+
+      if (reminderUtc.isAfter(windowStart) &&
+          reminderUtc.isBefore(windowEnd)) {
+        await _notify('habit:${h.id}:$todayStr', '习惯提醒', h.name);
       }
     }
   }
