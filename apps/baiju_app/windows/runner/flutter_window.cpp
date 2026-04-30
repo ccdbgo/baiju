@@ -26,13 +26,10 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  {
-    FlutterDesktopPluginRegistrarRef ref =
-        flutter_controller_->engine()->GetRegistrarForPlugin(
-            "BaijuNotificationPlugin");
-    flutter::PluginRegistrarWindows registrar(ref);
-    BaijuNotificationPlugin::RegisterWithRegistrar(&registrar);
-  }
+  notification_registrar_ = std::make_unique<flutter::PluginRegistrarWindows>(
+      flutter_controller_->engine()->GetRegistrarForPlugin(
+          "BaijuNotificationPlugin"));
+  BaijuNotificationPlugin::RegisterWithRegistrar(notification_registrar_.get());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
