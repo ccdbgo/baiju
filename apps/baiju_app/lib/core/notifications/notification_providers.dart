@@ -8,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
-  if (kIsWeb) return const NoopReminderScheduler();
+  if (kIsWeb || defaultTargetPlatform == TargetPlatform.windows) {
+    return const NoopReminderScheduler();
+  }
   return AppNotificationService.instance;
 });
 
