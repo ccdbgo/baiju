@@ -56,7 +56,21 @@ class _TimelinePageState extends ConsumerState<TimelinePage> {
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 16),
-          _TimelineSummaryCard(summary: summary),
+          _TimelineSummaryCard(
+            summary: summary,
+            onTapTotal: () {
+              ref.read(selectedTimelineFilterProvider.notifier).select(TimelineFilter.all);
+              ref.read(selectedTimelineRangeProvider.notifier).selectPreset(TimelineRangePreset.all);
+            },
+            onTapToday: () {
+              final now = DateTime.now();
+              final today = DateTime(now.year, now.month, now.day);
+              ref.read(selectedTimelineFilterProvider.notifier).select(TimelineFilter.all);
+              ref.read(selectedTimelineRangeProvider.notifier).selectCustomRange(
+                DateTimeRange(start: today, end: today.add(const Duration(days: 1))),
+              );
+            },
+          ),
           const SizedBox(height: 16),
           ModuleSearchField(
             controller: _searchController,
@@ -375,9 +389,15 @@ class _TimelineEventCard extends StatelessWidget {
 }
 
 class _TimelineSummaryCard extends StatelessWidget {
-  const _TimelineSummaryCard({required this.summary});
+  const _TimelineSummaryCard({
+    required this.summary,
+    required this.onTapTotal,
+    required this.onTapToday,
+  });
 
   final AsyncValue<TimelineSummary> summary;
+  final VoidCallback onTapTotal;
+  final VoidCallback onTapToday;
 
   @override
   Widget build(BuildContext context) {
@@ -392,6 +412,7 @@ class _TimelineSummaryCard extends StatelessWidget {
                   label: '结果数',
                   value: '${value.total}',
                   color: Theme.of(context).colorScheme.primary,
+                  onTap: onTapTotal,
                 ),
               ),
               Expanded(
@@ -399,6 +420,7 @@ class _TimelineSummaryCard extends StatelessWidget {
                   label: '今天',
                   value: '${value.today}',
                   color: const Color(0xFF136F63),
+                  onTap: onTapToday,
                 ),
               ),
               Expanded(
@@ -512,27 +534,36 @@ class _SummaryMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(label),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(label),
-      ],
+      ),
     );
   }
 }

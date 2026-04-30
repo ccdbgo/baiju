@@ -98,6 +98,18 @@ class _TodayPageState extends ConsumerState<TodayPage> {
             _TodayHeroCard(
               summary: summary,
               onOpenTodoPage: () => context.go('/todo'),
+              onTapToday: () {
+                ref.read(selectedTodoFilterProvider.notifier).select(TodoFilter.today);
+                context.go('/todo');
+              },
+              onTapActive: () {
+                ref.read(selectedTodoFilterProvider.notifier).select(TodoFilter.active);
+                context.go('/todo');
+              },
+              onTapCompleted: () {
+                ref.read(selectedTodoFilterProvider.notifier).select(TodoFilter.completed);
+                context.go('/todo');
+              },
             ),
             const SizedBox(height: 16),
           ],
@@ -558,10 +570,19 @@ class _TodayPageState extends ConsumerState<TodayPage> {
 }
 
 class _TodayHeroCard extends StatelessWidget {
-  const _TodayHeroCard({required this.summary, required this.onOpenTodoPage});
+  const _TodayHeroCard({
+    required this.summary,
+    required this.onOpenTodoPage,
+    required this.onTapToday,
+    required this.onTapActive,
+    required this.onTapCompleted,
+  });
 
   final AsyncValue<TodoSummary> summary;
   final VoidCallback onOpenTodoPage;
+  final VoidCallback onTapToday;
+  final VoidCallback onTapActive;
+  final VoidCallback onTapCompleted;
 
   @override
   Widget build(BuildContext context) {
@@ -596,18 +617,21 @@ class _TodayHeroCard extends StatelessWidget {
                     child: _HeroMetric(
                       label: '今日待办',
                       value: value.today.toString(),
+                      onTap: onTapToday,
                     ),
                   ),
                   Expanded(
                     child: _HeroMetric(
                       label: '进行中',
                       value: value.active.toString(),
+                      onTap: onTapActive,
                     ),
                   ),
                   Expanded(
                     child: _HeroMetric(
                       label: '已完成',
                       value: value.completed.toString(),
+                      onTap: onTapCompleted,
                     ),
                   ),
                 ],
@@ -644,26 +668,34 @@ class _TodayHeroCard extends StatelessWidget {
 }
 
 class _HeroMetric extends StatelessWidget {
-  const _HeroMetric({required this.label, required this.value});
+  const _HeroMetric({required this.label, required this.value, this.onTap});
 
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(label, style: const TextStyle(color: Colors.white70)),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(label, style: const TextStyle(color: Colors.white70)),
-      ],
+      ),
     );
   }
 }
