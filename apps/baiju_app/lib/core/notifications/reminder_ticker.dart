@@ -2,15 +2,20 @@ import 'dart:async';
 
 import 'package:baiju_app/core/database/app_database.dart';
 import 'package:baiju_app/core/database/database_provider.dart';
+import 'package:baiju_app/core/notifications/app_notification_service.dart';
 import 'package:baiju_app/core/notifications/native_notification_channel.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_providers.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Polls every 5 seconds and fires a native Windows balloon notification
-/// for any reminder whose scheduled time falls within the current window.
-/// Uses our own C++ plugin via MethodChannel — no third-party libraries.
+/// Polls every 5 seconds and fires a notification for any reminder whose
+/// scheduled time falls within the current window.
+///
+/// Platform dispatch:
+///   Windows — Shell_NotifyIcon balloon via our own C++ MethodChannel plugin
+///   Android/iOS/macOS — flutter_local_notifications show()
+///   Web — skipped (no persistent background, browser handles its own push)
 class ReminderTicker {
   ReminderTicker(this._database, this._userId);
 
@@ -36,12 +41,22 @@ class ReminderTicker {
   Future<void> _tick() async {
     if (kIsWeb) return;
     final now = DateTime.now().toUtc();
-    // Window: [now - 5s, now + 5s] — catches reminders due in this 5-second tick
     final windowStart = now.subtract(const Duration(seconds: 5));
     final windowEnd = now.add(const Duration(seconds: 5));
 
     await _checkSchedules(windowStart, windowEnd, now);
     await _checkTodos(windowStart, windowEnd);
+  }
+
+  Future<void> _notify(String key, String title, String body) async {
+    if (_notified.contains(key)) return;
+    _notified.add(key);
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      await NativeNotificationChannel.show(title: title, body: body);
+    } else {
+      await AppNotificationService.instance
+          .showImmediate(id: key, title: title, body: body);
+    }
   }
 
   Future<void> _checkSchedules(
@@ -64,15 +79,8 @@ class ReminderTicker {
       if (s.reminderMinutesBefore == null) continue;
       final reminderAt =
           s.startAt.subtract(Duration(minutes: s.reminderMinutesBefore!));
-      final key = 'schedule:${s.id}';
-      if (reminderAt.isAfter(windowStart) &&
-          reminderAt.isBefore(windowEnd) &&
-          !_notified.contains(key)) {
-        _notified.add(key);
-        await NativeNotificationChannel.show(
-          title: '日程提醒',
-          body: s.title,
-        );
+      if (reminderAt.isAfter(windowStart) && reminderAt.isBefore(windowEnd)) {
+        await _notify('schedule:${s.id}', '日程提醒', s.title);
       }
     }
   }
@@ -93,15 +101,8 @@ class ReminderTicker {
       final dueAt = t.dueAt;
       if (dueAt == null) continue;
       final reminderAt = dueAt.subtract(const Duration(minutes: 30));
-      final key = 'todo:${t.id}';
-      if (reminderAt.isAfter(windowStart) &&
-          reminderAt.isBefore(windowEnd) &&
-          !_notified.contains(key)) {
-        _notified.add(key);
-        await NativeNotificationChannel.show(
-          title: '待办提醒',
-          body: t.title,
-        );
+      if (reminderAt.isAfter(windowStart) && reminderAt.isBefore(windowEnd)) {
+        await _notify('todo:${t.id}', '待办提醒', t.title);
       }
     }
   }
