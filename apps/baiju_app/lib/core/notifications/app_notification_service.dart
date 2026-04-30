@@ -218,10 +218,19 @@ class AppNotificationService implements ReminderScheduler {
       id: id.hashCode & 0x7fffffff,
       title: title,
       body: body,
-      notificationDetails: _defaultDetails(
-        channelId: 'baiju_reminder',
-        channelName: '提醒',
-        channelDescription: '白驹的即时提醒通知',
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          'baiju_reminder',
+          '提醒',
+          channelDescription: '白驹的即时提醒通知',
+          importance: Importance.high,
+          priority: Priority.high,
+          ongoing: true,
+          autoCancel: false,
+        ),
+        iOS: const DarwinNotificationDetails(),
+        macOS: const DarwinNotificationDetails(),
+        windows: WindowsNotificationDetails(actions: []),
       ),
       payload: payload,
     );

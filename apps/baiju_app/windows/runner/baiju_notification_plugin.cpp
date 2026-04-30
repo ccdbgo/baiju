@@ -70,6 +70,12 @@ void BaijuNotificationPlugin::EnsureIconAdded() {
   wcsncpy_s(nid_.szTip, L"白驹", _TRUNCATE);
 
   Shell_NotifyIconW(NIM_ADD, &nid_);
+
+  // Use version 4 API so notifications go to the Action Center and persist
+  // until the user dismisses them.
+  nid_.uVersion = NOTIFYICON_VERSION_4;
+  Shell_NotifyIconW(NIM_SETVERSION, &nid_);
+
   icon_added_ = true;
 }
 
@@ -83,10 +89,12 @@ void BaijuNotificationPlugin::ShowBalloonNotification(
     const std::wstring& title, const std::wstring& body) {
   EnsureIconAdded();
 
-  // Update the icon data with balloon info
-  nid_.uFlags = NIF_INFO | NIF_ICON | NIF_TIP | NIF_MESSAGE;
-  nid_.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
-  nid_.uTimeout = 10000;  // 10 seconds display time
+  // NIF_REALTIME: if the notification cannot be shown immediately, discard it
+  // rather than queuing. Combined with NOTIFYICON_VERSION_4 the notification
+  // is sent to the Windows Action Center where it persists until the user
+  // dismisses it.
+  nid_.uFlags = NIF_INFO | NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_REALTIME;
+  nid_.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND | NIIF_RESPECT_QUIET_TIME;
 
   wcsncpy_s(nid_.szInfoTitle, title.c_str(), _TRUNCATE);
   wcsncpy_s(nid_.szInfo, body.c_str(), _TRUNCATE);

@@ -4,6 +4,7 @@ import 'package:baiju_app/core/database/app_database.dart';
 import 'package:baiju_app/core/database/database_provider.dart';
 import 'package:baiju_app/core/notifications/app_notification_service.dart';
 import 'package:baiju_app/core/notifications/native_notification_channel.dart';
+import 'package:baiju_app/core/notifications/reminder_event.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_providers.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
@@ -27,6 +28,12 @@ class ReminderTicker {
   /// Tracks notified entity IDs to avoid duplicate notifications.
   final Set<String> _notified = {};
 
+  /// Broadcasts in-app reminder events so the UI can show a persistent dialog.
+  final StreamController<ReminderEvent> _eventController =
+      StreamController<ReminderEvent>.broadcast();
+
+  Stream<ReminderEvent> get events => _eventController.stream;
+
   void start() {
     _timer?.cancel();
     _tick();
@@ -36,6 +43,11 @@ class ReminderTicker {
   void stop() {
     _timer?.cancel();
     _timer = null;
+  }
+
+  void dispose() {
+    stop();
+    _eventController.close();
   }
 
   Future<void> _tick() async {
@@ -52,6 +64,8 @@ class ReminderTicker {
   Future<void> _notify(String key, String title, String body) async {
     if (_notified.contains(key)) return;
     _notified.add(key);
+    // Broadcast in-app event so the UI can show a persistent dialog.
+    _eventController.add(ReminderEvent(title: title, body: body));
     if (defaultTargetPlatform == TargetPlatform.windows) {
       await NativeNotificationChannel.show(title: title, body: body);
     } else {

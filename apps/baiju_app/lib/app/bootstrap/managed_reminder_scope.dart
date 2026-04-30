@@ -1,12 +1,13 @@
 import 'dart:async';
 
 import 'package:baiju_app/core/notifications/notification_providers.dart';
+import 'package:baiju_app/core/notifications/reminder_event.dart';
 import 'package:baiju_app/core/notifications/reminder_ticker.dart';
 import 'package:baiju_app/core/sync/sync_providers.dart';
 import 'package:baiju_app/features/user/domain/user_models.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_preferences_providers.dart';
 import 'package:baiju_app/features/user/presentation/providers/user_providers.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ManagedReminderScope extends ConsumerStatefulWidget {
@@ -25,20 +26,42 @@ class ManagedReminderScope extends ConsumerStatefulWidget {
 class _ManagedReminderScopeState extends ConsumerState<ManagedReminderScope>
     with WidgetsBindingObserver {
   bool _syncing = false;
+  StreamSubscription<ReminderEvent>? _eventSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_syncManagedReminders());
-    ref.read(reminderTickerProvider).start();
+    final ticker = ref.read(reminderTickerProvider);
+    ticker.start();
+    _eventSub = ticker.events.listen(_onReminderEvent);
   }
 
   @override
   void dispose() {
+    _eventSub?.cancel();
     ref.read(reminderTickerProvider).stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _onReminderEvent(ReminderEvent event) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(event.title),
+        content: Text(event.body),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
