@@ -74,7 +74,12 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 18),
-          _GoalSummaryCard(summary: summary),
+          _GoalSummaryCard(
+            summary: summary,
+            onTapAll: () => setState(() => _selectedStatus = null),
+            onTapActive: () => setState(() => _selectedStatus = GoalStatus.active),
+            onTapCompleted: () => setState(() => _selectedStatus = GoalStatus.completed),
+          ),
           const SizedBox(height: 16),
           // View mode selector
           SegmentedButton<GoalViewMode>(
@@ -1428,9 +1433,17 @@ class GoalSlotBlock extends StatelessWidget {
 // ─── Summary card ─────────────────────────────────────────────────────────────
 
 class _GoalSummaryCard extends StatelessWidget {
-  const _GoalSummaryCard({required this.summary});
+  const _GoalSummaryCard({
+    required this.summary,
+    required this.onTapAll,
+    required this.onTapActive,
+    required this.onTapCompleted,
+  });
 
   final AsyncValue<GoalSummary> summary;
+  final VoidCallback onTapAll;
+  final VoidCallback onTapActive;
+  final VoidCallback onTapCompleted;
 
   @override
   Widget build(BuildContext context) {
@@ -1441,13 +1454,25 @@ class _GoalSummaryCard extends StatelessWidget {
           data: (value) => Row(
             children: <Widget>[
               Expanded(
-                child: _GoalMetric(label: '总数', value: '${value.total}'),
+                child: _GoalMetric(
+                  label: '总数',
+                  value: '${value.total}',
+                  onTap: onTapAll,
+                ),
               ),
               Expanded(
-                child: _GoalMetric(label: '进行中', value: '${value.active}'),
+                child: _GoalMetric(
+                  label: '进行中',
+                  value: '${value.active}',
+                  onTap: onTapActive,
+                ),
               ),
               Expanded(
-                child: _GoalMetric(label: '已完成', value: '${value.completed}'),
+                child: _GoalMetric(
+                  label: '已完成',
+                  value: '${value.completed}',
+                  onTap: onTapCompleted,
+                ),
               ),
             ],
           ),
@@ -1460,25 +1485,37 @@ class _GoalSummaryCard extends StatelessWidget {
 }
 
 class _GoalMetric extends StatelessWidget {
-  const _GoalMetric({required this.label, required this.value});
+  const _GoalMetric({
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              value,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(label),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(label),
-      ],
+      ),
     );
   }
 }

@@ -1,9 +1,12 @@
 import 'package:baiju_app/core/notifications/notification_providers.dart';
 import 'package:baiju_app/features/habit/domain/habit_models.dart';
 import 'package:baiju_app/features/schedule/domain/schedule_filter.dart';
+import 'package:baiju_app/features/schedule/presentation/providers/schedule_providers.dart';
 import 'package:baiju_app/features/todo/domain/todo_filter.dart';
+import 'package:baiju_app/features/todo/presentation/providers/todo_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class TodayOverviewCard extends ConsumerWidget {
   const TodayOverviewCard({
@@ -60,6 +63,10 @@ class TodayOverviewCard extends ConsumerWidget {
                       error: (error, stackTrace) => '-',
                     ),
                     color: const Color(0xFF136F63),
+                    onTap: () {
+                      ref.read(selectedScheduleFilterProvider.notifier).select(ScheduleFilter.today);
+                      context.go('/schedule');
+                    },
                   ),
                 ),
                 Expanded(
@@ -71,6 +78,10 @@ class TodayOverviewCard extends ConsumerWidget {
                       error: (error, stackTrace) => '-',
                     ),
                     color: const Color(0xFFC06C00),
+                    onTap: () {
+                      ref.read(selectedTodoFilterProvider.notifier).select(TodoFilter.today);
+                      context.go('/todo');
+                    },
                   ),
                 ),
                 Expanded(
@@ -82,6 +93,7 @@ class TodayOverviewCard extends ConsumerWidget {
                       error: (error, stackTrace) => '-',
                     ),
                     color: const Color(0xFF607D8B),
+                    onTap: () => context.go('/habit'),
                   ),
                 ),
                 Expanded(
@@ -109,6 +121,10 @@ class TodayOverviewCard extends ConsumerWidget {
                       error: (error, stackTrace) => '-',
                     ),
                     color: const Color(0xFF114B45),
+                    onTap: () {
+                      ref.read(selectedTodoFilterProvider.notifier).select(TodoFilter.today);
+                      context.go('/todo');
+                    },
                   ),
                 ),
                 Expanded(
@@ -120,6 +136,7 @@ class TodayOverviewCard extends ConsumerWidget {
                       error: (error, stackTrace) => '-',
                     ),
                     color: const Color(0xFFB03A2E),
+                    onTap: () => context.go('/habit'),
                   ),
                 ),
                 const Expanded(child: SizedBox.shrink()),
@@ -138,27 +155,36 @@ class _MetricBlock extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(label),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(label),
-      ],
+      ),
     );
   }
 }
@@ -193,4 +219,3 @@ class _ReminderBadge extends StatelessWidget {
     );
   }
 }
-

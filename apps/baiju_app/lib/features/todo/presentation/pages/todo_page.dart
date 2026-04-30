@@ -64,7 +64,13 @@ class _TodoPageState extends ConsumerState<TodoPage> {
           const SizedBox(height: 8),
           Text('管理你的任务清单，支持优先级、截止时间和子任务。', style: theme.textTheme.bodyLarge),
           const SizedBox(height: 18),
-          _TodoSummaryCard(summary: summary),
+          _TodoSummaryCard(
+            summary: summary,
+            onTapAll: () => ref.read(selectedTodoFilterProvider.notifier).select(TodoFilter.all),
+            onTapActive: () => ref.read(selectedTodoFilterProvider.notifier).select(TodoFilter.active),
+            onTapToday: () => ref.read(selectedTodoFilterProvider.notifier).select(TodoFilter.today),
+            onTapCompleted: () => ref.read(selectedTodoFilterProvider.notifier).select(TodoFilter.completed),
+          ),
           const SizedBox(height: 16),
           _QuickCreateCard(
             controller: _titleController,
@@ -372,9 +378,19 @@ class _TodoPageState extends ConsumerState<TodoPage> {
 }
 
 class _TodoSummaryCard extends StatelessWidget {
-  const _TodoSummaryCard({required this.summary});
+  const _TodoSummaryCard({
+    required this.summary,
+    required this.onTapAll,
+    required this.onTapActive,
+    required this.onTapToday,
+    required this.onTapCompleted,
+  });
 
   final AsyncValue<TodoSummary> summary;
+  final VoidCallback onTapAll;
+  final VoidCallback onTapActive;
+  final VoidCallback onTapToday;
+  final VoidCallback onTapCompleted;
 
   @override
   Widget build(BuildContext context) {
@@ -389,6 +405,7 @@ class _TodoSummaryCard extends StatelessWidget {
                   label: '总数',
                   value: value.total.toString(),
                   color: Theme.of(context).colorScheme.primary,
+                  onTap: onTapAll,
                 ),
               ),
               Expanded(
@@ -396,6 +413,7 @@ class _TodoSummaryCard extends StatelessWidget {
                   label: '进行中',
                   value: value.active.toString(),
                   color: const Color(0xFF136F63),
+                  onTap: onTapActive,
                 ),
               ),
               Expanded(
@@ -403,6 +421,7 @@ class _TodoSummaryCard extends StatelessWidget {
                   label: '今天',
                   value: value.today.toString(),
                   color: const Color(0xFFC06C00),
+                  onTap: onTapToday,
                 ),
               ),
               Expanded(
@@ -410,6 +429,7 @@ class _TodoSummaryCard extends StatelessWidget {
                   label: '已完成',
                   value: value.completed.toString(),
                   color: const Color(0xFF607D8B),
+                  onTap: onTapCompleted,
                 ),
               ),
             ],
@@ -430,27 +450,36 @@ class _SummaryItem extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(label),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(label),
-      ],
+      ),
     );
   }
 }

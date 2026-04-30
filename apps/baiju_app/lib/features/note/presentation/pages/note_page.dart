@@ -60,7 +60,12 @@ class _NotePageState extends ConsumerState<NotePage> {
           const SizedBox(height: 8),
           Text('记录想法、日记和备忘，支持收藏和关联其他事项。', style: theme.textTheme.bodyLarge),
           const SizedBox(height: 18),
-          _NoteSummaryCard(summary: summary),
+          _NoteSummaryCard(
+            summary: summary,
+            onTapAll: () => ref.read(selectedNoteFilterProvider.notifier).select(NoteFilter.all),
+            onTapFavorites: () => ref.read(selectedNoteFilterProvider.notifier).select(NoteFilter.favorites),
+            onTapDiary: () => ref.read(selectedNoteFilterProvider.notifier).select(NoteFilter.diary),
+          ),
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
@@ -234,9 +239,17 @@ class _NotePageState extends ConsumerState<NotePage> {
 }
 
 class _NoteSummaryCard extends StatelessWidget {
-  const _NoteSummaryCard({required this.summary});
+  const _NoteSummaryCard({
+    required this.summary,
+    required this.onTapAll,
+    required this.onTapFavorites,
+    required this.onTapDiary,
+  });
 
   final AsyncValue<NoteSummary> summary;
+  final VoidCallback onTapAll;
+  final VoidCallback onTapFavorites;
+  final VoidCallback onTapDiary;
 
   @override
   Widget build(BuildContext context) {
@@ -251,6 +264,7 @@ class _NoteSummaryCard extends StatelessWidget {
                   label: '总数',
                   value: '${value.total}',
                   color: Theme.of(context).colorScheme.primary,
+                  onTap: onTapAll,
                 ),
               ),
               Expanded(
@@ -258,6 +272,7 @@ class _NoteSummaryCard extends StatelessWidget {
                   label: '收藏',
                   value: '${value.favorites}',
                   color: const Color(0xFFC06C00),
+                  onTap: onTapFavorites,
                 ),
               ),
               Expanded(
@@ -265,6 +280,7 @@ class _NoteSummaryCard extends StatelessWidget {
                   label: '日记',
                   value: '${value.diaryCount}',
                   color: const Color(0xFF136F63),
+                  onTap: onTapDiary,
                 ),
               ),
             ],
@@ -282,27 +298,36 @@ class _NoteMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(label),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(label),
-      ],
+      ),
     );
   }
 }

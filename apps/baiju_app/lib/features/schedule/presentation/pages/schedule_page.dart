@@ -75,7 +75,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 18),
-          _ScheduleSummaryCard(summary: summary),
+          _ScheduleSummaryCard(
+            summary: summary,
+            onTapAll: () => ref.read(selectedScheduleFilterProvider.notifier).select(ScheduleFilter.all),
+            onTapToday: () => ref.read(selectedScheduleFilterProvider.notifier).select(ScheduleFilter.today),
+            onTapUpcoming: () => ref.read(selectedScheduleFilterProvider.notifier).select(ScheduleFilter.upcoming),
+            onTapCompleted: () => ref.read(selectedScheduleFilterProvider.notifier).select(ScheduleFilter.completed),
+          ),
           const SizedBox(height: 16),
           SegmentedButton<ScheduleViewMode>(
             segments: ScheduleViewMode.values
@@ -937,9 +943,19 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 }
 
 class _ScheduleSummaryCard extends StatelessWidget {
-  const _ScheduleSummaryCard({required this.summary});
+  const _ScheduleSummaryCard({
+    required this.summary,
+    required this.onTapAll,
+    required this.onTapToday,
+    required this.onTapUpcoming,
+    required this.onTapCompleted,
+  });
 
   final AsyncValue<ScheduleSummary> summary;
+  final VoidCallback onTapAll;
+  final VoidCallback onTapToday;
+  final VoidCallback onTapUpcoming;
+  final VoidCallback onTapCompleted;
 
   @override
   Widget build(BuildContext context) {
@@ -954,6 +970,7 @@ class _ScheduleSummaryCard extends StatelessWidget {
                   label: '总数',
                   value: value.total.toString(),
                   color: Theme.of(context).colorScheme.primary,
+                  onTap: onTapAll,
                 ),
               ),
               Expanded(
@@ -961,6 +978,7 @@ class _ScheduleSummaryCard extends StatelessWidget {
                   label: '今天',
                   value: value.today.toString(),
                   color: const Color(0xFF136F63),
+                  onTap: onTapToday,
                 ),
               ),
               Expanded(
@@ -968,6 +986,7 @@ class _ScheduleSummaryCard extends StatelessWidget {
                   label: '即将到来',
                   value: value.upcoming.toString(),
                   color: const Color(0xFFC06C00),
+                  onTap: onTapUpcoming,
                 ),
               ),
               Expanded(
@@ -975,6 +994,7 @@ class _ScheduleSummaryCard extends StatelessWidget {
                   label: '已完成',
                   value: value.completed.toString(),
                   color: const Color(0xFF607D8B),
+                  onTap: onTapCompleted,
                 ),
               ),
             ],
@@ -995,27 +1015,36 @@ class _ScheduleMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(label),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(label),
-      ],
+      ),
     );
   }
 }

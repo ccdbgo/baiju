@@ -66,7 +66,24 @@ class _HabitPageState extends ConsumerState<HabitPage> {
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 18),
-          _HabitSummaryCard(summary: summary),
+          _HabitSummaryCard(
+            summary: summary,
+            onTapAll: () => setState(() {
+              _showOnlyGoalLinked = false;
+              _selectedGoalId = null;
+              _selectedReminder = HabitReminderPreset.none;
+            }),
+            onTapActive: () => setState(() {
+              _showOnlyGoalLinked = false;
+              _selectedGoalId = null;
+              _selectedReminder = HabitReminderPreset.none;
+            }),
+            onTapCheckedToday: () => setState(() {
+              _showOnlyGoalLinked = false;
+              _selectedGoalId = null;
+              _selectedReminder = HabitReminderPreset.none;
+            }),
+          ),
           const SizedBox(height: 16),
           _ReminderManagementCard(
             pendingReminderCount: pendingReminderCount,
@@ -552,9 +569,17 @@ class _HabitPageState extends ConsumerState<HabitPage> {
 }
 
 class _HabitSummaryCard extends StatelessWidget {
-  const _HabitSummaryCard({required this.summary});
+  const _HabitSummaryCard({
+    required this.summary,
+    required this.onTapAll,
+    required this.onTapActive,
+    required this.onTapCheckedToday,
+  });
 
   final AsyncValue<HabitSummary> summary;
+  final VoidCallback onTapAll;
+  final VoidCallback onTapActive;
+  final VoidCallback onTapCheckedToday;
 
   @override
   Widget build(BuildContext context) {
@@ -569,6 +594,7 @@ class _HabitSummaryCard extends StatelessWidget {
                   label: '总数',
                   value: value.total.toString(),
                   color: Theme.of(context).colorScheme.primary,
+                  onTap: onTapAll,
                 ),
               ),
               Expanded(
@@ -576,6 +602,7 @@ class _HabitSummaryCard extends StatelessWidget {
                   label: '进行中',
                   value: value.active.toString(),
                   color: const Color(0xFF136F63),
+                  onTap: onTapActive,
                 ),
               ),
               Expanded(
@@ -583,6 +610,7 @@ class _HabitSummaryCard extends StatelessWidget {
                   label: '今天已打卡',
                   value: value.checkedToday.toString(),
                   color: const Color(0xFFC06C00),
+                  onTap: onTapCheckedToday,
                 ),
               ),
             ],
@@ -603,27 +631,36 @@ class _HabitMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(label),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(label),
-      ],
+      ),
     );
   }
 }

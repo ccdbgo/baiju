@@ -63,7 +63,20 @@ class _AnniversaryPageState extends ConsumerState<AnniversaryPage> {
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 18),
-          _AnniversarySummaryCard(summary: summary),
+          _AnniversarySummaryCard(
+            summary: summary,
+            onTapAll: () => setState(() {
+              _selectedCategory = null;
+              _sortOption = AnniversarySortOption.upcomingFirst;
+            }),
+            onTapUpcoming: () => setState(() {
+              _selectedCategory = null;
+              _sortOption = AnniversarySortOption.upcomingFirst;
+            }),
+            onTapWithReminder: () => setState(() {
+              _sortOption = AnniversarySortOption.upcomingFirst;
+            }),
+          ),
           const SizedBox(height: 16),
           _UpcomingSprintCard(
             summary: summary,
@@ -288,9 +301,17 @@ class _AnniversaryPageState extends ConsumerState<AnniversaryPage> {
 }
 
 class _AnniversarySummaryCard extends StatelessWidget {
-  const _AnniversarySummaryCard({required this.summary});
+  const _AnniversarySummaryCard({
+    required this.summary,
+    required this.onTapAll,
+    required this.onTapUpcoming,
+    required this.onTapWithReminder,
+  });
 
   final AsyncValue<AnniversarySummary> summary;
+  final VoidCallback onTapAll;
+  final VoidCallback onTapUpcoming;
+  final VoidCallback onTapWithReminder;
 
   @override
   Widget build(BuildContext context) {
@@ -305,6 +326,7 @@ class _AnniversarySummaryCard extends StatelessWidget {
                   label: '总数',
                   value: '${value.total}',
                   color: Theme.of(context).colorScheme.primary,
+                  onTap: onTapAll,
                 ),
               ),
               Expanded(
@@ -312,6 +334,7 @@ class _AnniversarySummaryCard extends StatelessWidget {
                   label: '30 天内',
                   value: '${value.upcoming30Days}',
                   color: const Color(0xFF136F63),
+                  onTap: onTapUpcoming,
                 ),
               ),
               Expanded(
@@ -319,6 +342,7 @@ class _AnniversarySummaryCard extends StatelessWidget {
                   label: '已提醒',
                   value: '${value.withReminder}',
                   color: const Color(0xFFC06C00),
+                  onTap: onTapWithReminder,
                 ),
               ),
             ],
@@ -438,27 +462,36 @@ class _SummaryMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(label),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(label),
-      ],
+      ),
     );
   }
 }
