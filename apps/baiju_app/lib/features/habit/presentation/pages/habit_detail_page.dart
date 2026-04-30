@@ -150,6 +150,7 @@ class HabitDetailPage extends ConsumerWidget {
       final confirmed = await showModalBottomSheet<bool>(
         context: context,
         showDragHandle: true,
+        isScrollControlled: true,
         builder: (context) {
           return StatefulBuilder(
             builder: (context, setModalState) {
@@ -158,7 +159,7 @@ class HabitDetailPage extends ConsumerWidget {
                   : '${customReminder!.hour.toString().padLeft(2, '0')}:${customReminder!.minute.toString().padLeft(2, '0')}';
 
               return SafeArea(
-                child: Padding(
+                child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -254,13 +255,26 @@ class HabitDetailPage extends ConsumerWidget {
               : '${customReminder!.hour.toString().padLeft(2, '0')}:${customReminder!.minute.toString().padLeft(2, '0')}',
       };
 
-      await ref.read(habitActionsProvider).updateHabit(
-            habit: habit,
-            name: controller.text.trim(),
-            reminderTime: reminderTime,
-            goalId: habit.goalId,
-            progressWeight: progressWeight,
+      try {
+        await ref.read(habitActionsProvider).updateHabit(
+              habit: habit,
+              name: controller.text.trim(),
+              reminderTime: reminderTime,
+              goalId: habit.goalId,
+              progressWeight: progressWeight,
+            );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('习惯已更新')),
           );
+        }
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('保存失败：$error')),
+          );
+        }
+      }
     } finally {
       controller.dispose();
     }
